@@ -663,3 +663,13 @@ public class CuiManager : IDisposable
     }
 }
 ```
+
+* 시스템 변수 설정
+
+```cs
+// Get the current value from a system variable
+int nMaxSort = System.Convert.ToInt32(Application.GetSystemVariable("MAXSORT"));
+
+// Set system variable to new value
+Application.SetSystemVariable("MAXSORT", 100);
+```
