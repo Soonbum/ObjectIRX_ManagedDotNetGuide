@@ -283,6 +283,7 @@ using (Transaction tr = db.TransactionManager.StartTransaction())
     // 용지 방향
     bool OrientationLandScape = true;
 
+    // 팝업 컨트롤 값에 따라 용지 방향 결정
     if (popupContainerEdit_PaperOrientation.Text == "가로")
         OrientationLandScape = true;
     else
@@ -373,5 +374,292 @@ using (Transaction tr = db.TransactionManager.StartTransaction())
     }
 
     tr.Commit();
+}
+```
+
+* 리본 메뉴 생성하기
+
+```cs
+public class CuiManager : IDisposable
+{
+    // 리본 메뉴에 대한 문자열 리터럴
+    public static class Literals
+    {
+        public const string commandCreateRibbonTab = "CadianAICreateRibbonTab";
+        public const string commandDeleteRibbonTab = "CadianAIDeleteRibbonTab";
+        public const string commandToggleRibbonTab = "CadianAIToggleRibbonTab";
+
+        public const string uidRibbonTab = "dotnet-cadian-ai-tab-1";
+        public const string uidRibbonPanel = "dotnet-cadian-ai-panel-1";
+
+        public const string uidCuiElementBase = "dotnet-cadian-ai-{0}-{1}";
+        public const string defaultHelpBase = "Help: {0}";
+    }
+
+    private List<MenuMacroBase> cuiElements = new List<MenuMacroBase>();
+    private static CuiManager manager = null;
+    private static bool applsQuitting = false;
+
+    public CuiManager()
+    {
+        IntelliCAD.ApplicationServices.Application.BeginQuit += Application_BeginQuit;
+        IntelliCAD.ApplicationServices.Application.DocumentManager.DocumentToBeDestroyed += DocumentManager_DocumentToBeDestroyed;
+    }
+
+    ~CuiManager()
+    {
+        Dispose();
+    }
+
+    public void Dispose()
+    {
+        if (null != manager)
+        {
+            foreach (MenuMacroBase cuiElement in cuiElements)
+            {
+                CleanupCuiElement(cuiElement);
+                cuiElement.Dispose();
+            }
+            cuiElements.Clear();
+
+            manager = null;
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
+    public static CuiManager GetManager()
+    {
+        if (null == manager)
+        {
+            manager = new CuiManager();
+        }
+        return manager;
+    }
+
+    public MenuMacroBase RegisterCuiElement(MenuMacroBase cuiElement)
+    {
+        if (null == cuiElement)
+            throw new ArgumentNullException(nameof(cuiElement));
+        if (!cuiElements.Exists(e => e.Uid == cuiElement.Uid))
+            cuiElements.Add(cuiElement);
+
+        return cuiElement;
+    }
+
+    public void DeleteCuiElement(MenuMacroBase cuiElement)
+    {
+        if (null == cuiElement)
+            throw new ArgumentNullException(nameof(cuiElement));
+
+        MenuMacroBase found = cuiElements.Find(e => e.Uid == cuiElement.Uid);
+
+        if (null != found)
+        {
+            CleanupCuiElement(found);
+            cuiElements.Remove(found);
+            found.Dispose();
+        }
+        else
+        {
+            CleanupCuiElement(cuiElement);
+        }
+    }
+
+    private void CleanupCuiElement(MenuMacroBase cuiElement)
+    {
+        using (CuiProfile profile = new CuiProfile())
+        {
+            using (Workspace ws = profile.GetDefaultWorkspace())
+            {
+                if (cuiElement is RibbonTab)
+                {
+                    ws.Remove(CuiItems.RIBBON, cuiElement.Uid);
+                    profile.DeleteRibbonTab(cuiElement.Uid);
+                }
+                else if (cuiElement is RibbonPanel)
+                {
+                    ws.Remove(CuiItems.RIBBON, cuiElement.Uid);
+                    profile.DeleteRibbonPanel(cuiElement.Uid);
+                }
+            }
+        }
+    }
+
+    private static void Application_BeginQuit(object sender, EventArgs e)
+    {
+        applsQuitting = true;
+    }
+
+    private static void DocumentManager_DocumentToBeDestroyed(object sender, DocumentCollectionEventArgs e)
+    {
+        if (applsQuitting && IntelliCAD.ApplicationServices.Application.DocumentManager.Count == 1)
+            manager?.Dispose();
+    }
+
+    // 리본 컨트롤 생성하기
+    [CommandMethod(CuiManager.Literals.commandCreateRibbonTab)]
+    public static void CadianAICreateRibbonTab()
+    {
+        CuiProfile profile = null;
+        RibbonCommandItem button = null;
+        RibbonRow row = null;
+        RibbonSeparator separator = null;
+        RibbonTab tab = null;
+        RibbonPanel panel = null;
+        Workspace ws = null;
+        try
+        {
+            profile = new CuiProfile();
+
+            if (profile.GetMacroBaseByUid(CuiManager.Literals.uidRibbonPanel) != null
+                || profile.GetMacroBaseByUid(CuiManager.Literals.uidRibbonTab) != null)
+            {
+                return;
+            }
+
+            // 1번째 버튼
+            button = new RibbonCommandItem();
+            button.DefaultToolTip = "Wall Vector Detection";
+            button.DefaultHelpString = String.Format(CuiManager.Literals.defaultHelpBase, button.DefaultToolTip);
+            button.Style = CuiRibbonButtonStyle.LARGE_WITH_TEXT;
+            button.BMPFileNameLgColor = @".\RibbonImage\IconSetArrows3_32x32.bmp";
+            button.Command = "VectorDetection";
+            button.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, button.GetType().Name, 1);
+
+            row = new RibbonRow();
+            row.Add(button);
+            button.Dispose();
+
+            // 구분자
+            separator = new RibbonSeparator();
+            separator.Style = CuiRibbonSeparatorStyle.LINE;
+            separator.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, separator.GetType().Name, 1);
+
+            row.Add(separator);
+            separator.Dispose();
+
+            // 2번째 버튼
+            button = new RibbonCommandItem();
+            button.DefaultToolTip = "Export Image";
+            button.DefaultHelpString = String.Format(CuiManager.Literals.defaultHelpBase, button.DefaultToolTip);
+            button.Style = CuiRibbonButtonStyle.LARGE_WITH_TEXT;
+            button.BMPFileNameLgColor = @".\RibbonImage\ExportToIMG_32x32.bmp";
+            button.Command = "DWGtoIMG";
+            button.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, button.GetType().Name, 1);
+
+            row.Add(button);
+            button.Dispose();
+
+            // ...
+            //button = new RibbonCommandItem();
+            //button.DefaultToolTip = "팔레트 창 열기";
+            //button.DefaultHelpString = String.Format(CuiManager.Literals.defaultHelpBase, button.DefaultToolTip);
+            //button.Style = CuiRibbonButtonStyle.LARGE_WITH_TEXT;
+            //button.Command = "OpenPaletteSet";
+            //button.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, button.GetType().Name, 1);
+
+            //row.Add(button);
+            //button.Dispose();
+
+            tab = new RibbonTab();
+            tab.Uid = CuiManager.Literals.uidRibbonTab;
+            CuiManager.GetManager().RegisterCuiElement(tab);
+            tab.GroupName = "ICAD";
+            tab.DefaultText = "캐디안 AI";
+            tab.DefaultToolTip = tab.DefaultText;
+            tab.DefaultHelpString = String.Format(CuiManager.Literals.defaultHelpBase, tab.DefaultToolTip);
+            tab.DoCreateTab = true;
+
+            panel = new RibbonPanel();
+            panel.Uid = CuiManager.Literals.uidRibbonPanel;
+            CuiManager.GetManager().RegisterCuiElement(panel);
+            panel.DefaultToolTip = "캐디안 AI";
+            panel.DefaultHelpString = String.Format(CuiManager.Literals.defaultHelpBase, panel.DefaultToolTip);
+            panel.DoCreatePanel = true;
+
+            panel.Insert(row, null);
+            tab.Insert(panel, "");
+
+            profile.AddRibbonPanel(panel, tab.Uid);
+            profile.InsertRibbonTab(tab, "");
+
+            ws = profile.GetDefaultWorkspace();
+            ws.UpdatePanelsFromImport(panel, profile);
+            ws.UpdateTabsFromImport(tab, profile);
+
+            profile.BuildUILayout(true, false, false, true);
+        }
+        finally
+        {
+            profile?.Dispose();
+            button?.Dispose();
+            row?.Dispose();
+            separator?.Dispose();
+            ws?.Dispose();
+        }
+    }
+
+    // 리본에서 test 탭 제거
+    [CommandMethod(CuiManager.Literals.commandDeleteRibbonTab)]
+    public static void CadianAIDeleteRibbonTab()
+    {
+        using (CuiProfile profile = new CuiProfile())
+        {
+            MenuMacroBase panel = profile.GetMacroBaseByUid(CuiManager.Literals.uidRibbonPanel);
+            if (null != panel)
+            {
+                CuiManager.GetManager().DeleteCuiElement(panel);
+            }
+
+            MenuMacroBase tab = profile.GetMacroBaseByUid(CuiManager.Literals.uidRibbonTab);
+            if (null != tab)
+            {
+                CuiManager.GetManager().DeleteCuiElement(tab);
+            }
+
+            profile.BuildUILayout(true, false, false, true);
+        }
+    }
+
+    // 리본 탭 on/off 토글
+    [CommandMethod(CuiManager.Literals.commandToggleRibbonTab)]
+    public static void CadianAIToggleRibbonTab()
+    {
+        CuiProfile profile = null;
+        IntelliCAD.EditorInput.Editor editor = null;
+        try
+        {
+            profile = new CuiProfile();
+            editor = IntelliCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument.Editor;
+
+            if (profile.GetMacroBaseByUid(CuiManager.Literals.uidRibbonTab) == null)
+            {
+                editor.Command(CuiManager.Literals.commandCreateRibbonTab);
+            }
+            else
+            {
+                editor.Command(CuiManager.Literals.commandDeleteRibbonTab);
+            }
+
+            profile.BuildUILayout(true, false, false, true);
+        }
+        finally
+        {
+            profile.Dispose();
+            editor.Dispose();
+        }
+    }
+
+    // CUI에서 모든 test 객체를 정리함
+    [CommandMethod("ExCuiCleanup")]
+    public static void ExCuiCleanup()
+    {
+        CuiManager.GetManager().Dispose();
+        using (CuiProfile profile = new CuiProfile())
+        {
+            profile.BuildUILayout(true, true, true, true);
+        }
+    }
 }
 ```
