@@ -239,3 +239,140 @@ public static void CommandName()
     }
     ```
 
+* 도큐먼트 창 업데이트
+
+```cs
+// Redraw the drawing
+Application.UpdateScreen();
+Application.DocumentManager.MdiActiveDocument.Editor.UpdateScreen();
+ 
+// Regenerate the drawing
+Application.DocumentManager.MdiActiveDocument.Editor.Regen();
+```
+
+* 사각형 영역 마우스로 입력 받고 플롯(인쇄)하기
+
+```cs
+Document doc = IntelliCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+Editor ed = doc.Editor;
+Database db = doc.Database;
+
+// 사용자로부터 두 점을 입력받아 화면 범위를 선택
+PromptPointResult ppr1 = ed.GetPoint("첫 번째 지점을 선택하십시오:");
+
+if (ppr1.Status != PromptStatus.OK) return;
+Point3d firstPoint = ppr1.Value;
+
+if (ppr1.Status == PromptStatus.Cancel) return;
+
+PromptPointResult ppr2 = ed.GetCorner("두 번째 지점을 선택하십시오:", ppr1.Value);
+
+if (ppr2.Status != PromptStatus.OK) return;
+Point3d secondPoint = ppr2.Value;
+
+// 선택된 두 점을 통해서 Extents2d 객체 생성
+Extents2d plotWindow = new Extents2d(
+    Math.Min(firstPoint.X, secondPoint.X),
+    Math.Min(firstPoint.Y, secondPoint.Y),
+    Math.Max(firstPoint.X, secondPoint.X),
+    Math.Max(firstPoint.Y, secondPoint.Y)
+);
+
+using (Transaction tr = db.TransactionManager.StartTransaction())
+{
+    // 용지 방향
+    bool OrientationLandScape = true;
+
+    if (popupContainerEdit_PaperOrientation.Text == "가로")
+        OrientationLandScape = true;
+    else
+        OrientationLandScape = false;
+
+    // 용지 크기
+    string paperSize = popupContainerEdit_PaperSize.Text;
+
+    // 파일 저장 다이얼로그 표시
+    System.Windows.Forms.SaveFileDialog saveFileDialog = new System.Windows.Forms.SaveFileDialog();
+    saveFileDialog.Filter = "이미지 파일|*.png";
+    saveFileDialog.Title = "이미지 파일을 저장하십시오.";
+    saveFileDialog.FileName = "TestPrint.png";
+
+    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+    {
+        string outputFilePath = saveFileDialog.FileName;
+
+        // 현재 레이아웃을 플롯(인쇄)
+        BlockTableRecord currentSpace = (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForRead);
+        Layout layout = (Layout)tr.GetObject(currentSpace.LayoutId, OpenMode.ForRead);
+
+        // PlotInfo 객체를 레이아웃에 연결
+        PlotInfo plotInfo = new PlotInfo();
+        plotInfo.Layout = currentSpace.LayoutId;
+
+        // 레이아웃 설정을 기반으로 PlotSettings 객체 설정
+        PlotSettings plotSettings = new PlotSettings(layout.ModelType);
+        plotSettings.CopyFrom(layout);
+
+        // The PlotSettingsValidator helps create a valid PlotSettings object
+        PlotSettingsValidator plotSettingsValidator = PlotSettingsValidator.Current;
+        plotSettingsValidator.SetPlotWindowArea(plotSettings, plotWindow);      // 화면 범위
+
+        // scaled to fit
+        plotSettingsValidator.SetPlotType(plotSettings, PlotType.Window);
+        plotSettingsValidator.SetUseStandardScale(plotSettings, true);
+        plotSettingsValidator.SetStdScaleType(plotSettings, StdScaleType.ScaleToFit);
+        plotSettingsValidator.SetPlotCentered(plotSettings, true);
+        if (OrientationLandScape)
+            plotSettingsValidator.SetPlotRotation(plotSettings, PlotRotation.Degrees090);   // 가로 방향
+        else
+            plotSettingsValidator.SetPlotRotation(plotSettings, PlotRotation.Degrees000);   // 세로 방향
+
+
+        // Use standard DWF PC3, as for today we're just plotting to file
+        plotSettingsValidator.SetPlotConfigurationName(plotSettings, "PublishToWeb PNG.pc3", paperSize); // Needs to be a device that can print directly and valid media name.
+        // plotSettingsValidator.SetCurrentStyleSheet(plotSettings, "Icad.ctb");    // Set stylesheet
+
+        // Save the modified PlotSettings to the database
+        layout.UpgradeOpen();
+        layout.CopyFrom(plotSettings);
+
+        plotInfo.OverrideSettings = plotSettings;
+        PlotInfoValidator plotInfoValidator = new PlotInfoValidator();
+        plotInfoValidator.MediaMatchingPolicy = MatchingPolicy.MatchEnabled;
+        plotInfoValidator.Validate(plotInfo);
+
+        // A PlotEngine does the actual plotting
+        if (PlotFactory.ProcessPlotState == ProcessPlotState.NotPlotting)
+        {
+            try
+            {
+                PlotEngine plotEngine = PlotFactory.CreatePublishEngine();
+
+                plotEngine.BeginPlot(null, null);
+                PlotConfig config = plotInfo.ValidatedConfig;
+                config.IsPlotToFile = true;
+                plotEngine.BeginDocument(plotInfo, "TestPrint", null, 1, true, outputFilePath);
+                PlotPageInfo plotPageInfo = new PlotPageInfo();
+                plotEngine.BeginPage(plotPageInfo, plotInfo, true, null);
+                plotEngine.BeginGenerateGraphics(null);
+
+                plotEngine.EndGenerateGraphics(null);
+                plotEngine.EndPage(null);
+                plotEngine.EndDocument(null);
+                plotEngine.EndPlot(null);
+                plotEngine.Destroy();
+                plotEngine = null;
+            }
+            catch (System.Exception error) { System.Exception Err = error; }
+
+            MessageBox.Show("Plot을 완료했습니다.", "성공", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        else
+        {
+            ed.WriteMessage("\n다른 플롯이 진행 중입니다.");
+        }
+    }
+
+    tr.Commit();
+}
+```
