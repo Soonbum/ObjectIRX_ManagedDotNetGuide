@@ -116,7 +116,7 @@ public static void IterateLayers()
 public static void CommandName()
 {
     Document acDoc = Application.DocumentManager.MdiActiveDocument;    // 도큐먼트
-    Database acCurDb = acDoc.Database;                                 // 도큐먼트 내 데이터베이스 (오브젝트, 레이어 등 도면과 관련된 모든 정보가 있음)
+    Database acCurDb = acDoc.Database;                                 // 도큐먼트 내 데이터베이스 (오브젝트, 레이어 등 도면과 관련된 모든 정보 포함)
 
     // 트랜잭션: DB에서 말하는 그 "트랜잭션"을 의미함
     // Undo/Redo 동작을 위해 동작을 트랜잭션 단위별로 나누어 놓기 위해 필요함
@@ -130,5 +130,24 @@ public static void CommandName()
 }
 ```
 
+### 계층 구조
+
+* 먼저 모듈은 다음과 같은 구조로 되어 있습니다. (자주 사용하는 모듈 위주로만 기록되어 있음)
+
+* Application
+  - DocumentManager
+    * Document
+      - Editor
+        * ViewTable
+          - ViewTableRecord
+        * ViewportTable
+          - ViewportTableRecord
+      - Database
+        * BlockTable
+          - BlockTableRecord
+        * LayerTable
+          - LayerTableRecord
+
 ### 기능 구현 예시
 
+* 레이어 관리
