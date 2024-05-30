@@ -250,7 +250,7 @@ Application.DocumentManager.MdiActiveDocument.Editor.UpdateScreen();
 Application.DocumentManager.MdiActiveDocument.Editor.Regen();
 ```
 
-* 사각형 영역 마우스로 입력 받고 플롯(인쇄)하기
+* 사각형 영역 마우스로 입력 받고 이미지 파일로 플롯(인쇄)하기
 
 ```cs
 Document doc = IntelliCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
@@ -317,8 +317,8 @@ using (Transaction tr = db.TransactionManager.StartTransaction())
         PlotSettingsValidator plotSettingsValidator = PlotSettingsValidator.Current;
         plotSettingsValidator.SetPlotWindowArea(plotSettings, plotWindow);      // 화면 범위
 
-        // scaled to fit
-        plotSettingsValidator.SetPlotType(plotSettings, PlotType.Window);
+        // 화면 맞춤
+        plotSettingsValidator.SetPlotType(plotSettings, PlotType.Window);    // 인쇄 범위 > 인쇄 대상: 윈도우
         plotSettingsValidator.SetUseStandardScale(plotSettings, true);
         plotSettingsValidator.SetStdScaleType(plotSettings, StdScaleType.ScaleToFit);
         plotSettingsValidator.SetPlotCentered(plotSettings, true);
@@ -326,7 +326,6 @@ using (Transaction tr = db.TransactionManager.StartTransaction())
             plotSettingsValidator.SetPlotRotation(plotSettings, PlotRotation.Degrees090);   // 가로 방향
         else
             plotSettingsValidator.SetPlotRotation(plotSettings, PlotRotation.Degrees000);   // 세로 방향
-
 
         // Use standard DWF PC3, as for today we're just plotting to file
         plotSettingsValidator.SetPlotConfigurationName(plotSettings, "PublishToWeb PNG.pc3", paperSize); // Needs to be a device that can print directly and valid media name.
