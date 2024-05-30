@@ -151,3 +151,91 @@ public static void CommandName()
 ### 기능 구현 예시
 
 * 레이어 관리
+  - 레이어 추가
+    ```cs
+    // 현재 데이터베이스의 레이어 테이블 반환
+    LayerTable acLyrTbl;
+    acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+    // 레이어 "MyLayer"가 존재하지 않으면
+    if (acLyrTbl.Has("MyLayer") != true)
+    {
+        // 쓰기 작업을 위한 레이어 테이블 열기
+        acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForWrite);
+
+        // 레이어 "MyLayer"라는 새로운 레이어 테이블 레코드 생성
+        using (LayerTableRecord acLyrTblRec = new LayerTableRecord())
+        {
+            acLyrTblRec.Name = "MyLayer";
+
+            // 레이어 테이블과 트랜잭션에 새로운 레이어 테이블 레코드 추가
+            acLyrTbl.Add(acLyrTblRec);
+            acTrans.AddNewlyCreatedDBObject(acLyrTblRec, true);
+        }
+
+        // Commit the changes
+        acTrans.Commit();
+    }
+    ```
+  - 레이어 조회
+    ```cs
+    // 현재 데이터베이스의 레이어 테이블 반환
+    LayerTable acLyrTbl;
+    acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+    // 레이어 테이블에 있는 레이어 목록을 보여줌
+    foreach (ObjectId acObjId in acLyrTbl)
+    {
+        LayerTableRecord acLyrTblRec;
+        acLyrTblRec = acTrans.GetObject(acObjId, OpenMode.ForRead) as LayerTableRecord;
+
+        acDoc.Editor.WriteMessage("\n" + acLyrTblRec.Name);
+    }
+    ```
+  - 레이어 찾기
+    ```cs
+    // 현재 데이터베이스의 레이어 테이블 반환
+    LayerTable acLyrTbl;
+    acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+    // 레이어 테이블에서 레이어 "MyLayer"가 존재하는지 확인
+    if (acLyrTbl.Has("MyLayer") != true)
+    {
+        acDoc.Editor.WriteMessage("\n'MyLayer' does not exist");
+    }
+    else
+    {
+        acDoc.Editor.WriteMessage("\n'MyLayer' exists");
+    }
+    ```
+  - 레이어 삭제
+    ```cs
+    // 현재 데이터베이스의 레이어 테이블 반환
+    LayerTable acLyrTbl;
+    acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+    // 레이어 테이블에서 레이어 "MyLayer"가 존재하는지 확인
+    if (acLyrTbl.Has("MyLayer") == true)
+    {
+        LayerTableRecord acLyrTblRec;
+        acLyrTblRec = acTrans.GetObject(acLyrTbl["MyLayer"], OpenMode.ForWrite) as LayerTableRecord;
+
+        try
+        {
+            acLyrTblRec.Erase();
+            acDoc.Editor.WriteMessage("\n'MyLayer' was erased");
+
+            // Commit the changes
+            acTrans.Commit();
+        }
+        catch
+        {
+            acDoc.Editor.WriteMessage("\n'MyLayer' could not be erased");
+        }
+    }
+    else
+    {
+        acDoc.Editor.WriteMessage("\n'MyLayer' does not exist");
+    }
+    ```
+
