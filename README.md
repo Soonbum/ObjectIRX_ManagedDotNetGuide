@@ -673,3 +673,79 @@ int nMaxSort = System.Convert.ToInt32(Application.GetSystemVariable("MAXSORT"));
 // Set system variable to new value
 Application.SetSystemVariable("MAXSORT", 100);
 ```
+
+* 프롬프트에서 문자열 입력 받기
+
+```cs
+Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+PromptStringOptions pStrOpts = new PromptStringOptions("\nEnter your name: ");
+pStrOpts.AllowSpaces = true;    // 공백 허용
+PromptResult pStrRes = acDoc.Editor.GetString(pStrOpts);    // 사용자에게 문자열 입력 요청
+
+Application.ShowAlertDialog("The name entered was: " + pStrRes.StringResult);
+```
+
+* 프롬프트에서 키워드 입력 받기
+
+```cs
+Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+PromptKeywordOptions pKeyOpts = new PromptKeywordOptions("");
+pKeyOpts.Message = "\nEnter an option ";
+pKeyOpts.Keywords.Add("Line");
+pKeyOpts.Keywords.Add("Circle");
+pKeyOpts.Keywords.Add("Arc");
+pKeyOpts.AllowNone = false;    // 무조건 선택을 해야 함
+
+PromptResult pKeyRes = acDoc.Editor.GetKeywords(pKeyOpts);    // 사용자에게 키워드 입력 요청
+
+Application.ShowAlertDialog("Entered keyword: " + pKeyRes.StringResult);
+```
+
+* 프롬프트에서 정수, 키워드 혼합 입력 받기
+
+```cs
+Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+PromptIntegerOptions pIntOpts = new PromptIntegerOptions("");
+pIntOpts.Message = "\nEnter the size or ";
+
+// 0이나 음수는 허용하지 않으며 양수만 입력할 수 있음
+pIntOpts.AllowZero = false;
+pIntOpts.AllowNegative = false;
+
+// 키워드는 3개를 받을 수 있으며 기본값을 지정함, 키워드를 입력하지 않을 수도 있음
+pIntOpts.Keywords.Add("Big");
+pIntOpts.Keywords.Add("Small");
+pIntOpts.Keywords.Add("Regular");
+pIntOpts.Keywords.Default = "Regular";
+pIntOpts.AllowNone = true;
+
+// 사용자에게 정수 입력 요청
+PromptIntegerResult pIntRes = acDoc.Editor.GetInteger(pIntOpts);
+
+// 키워드인지 아닌지에 따라 다르게 동작
+if (pIntRes.Status == PromptStatus.Keyword)
+{
+    Application.ShowAlertDialog("Entered keyword: " + pIntRes.StringResult);
+}
+else
+{
+    Application.ShowAlertDialog("Entered value: " + pIntRes.Value.ToString());
+}
+```
+
+* 프롬프트에서 명령어 호출하기
+
+```cs
+Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+// 마지막의 whitespace는 Enter와 같음
+acDoc.SendStringToExecute("._circle 2,2,0 4 ", true, false, false);    // 중심이 (2, 2, 0)이고 반지름이 4인 원
+acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든 것이 보이도록 Zoom
+```
+
+<!--
+https://help.autodesk.com/view/OARX/2024/ENU/?guid=GUID-8D56532D-2B17-48D1-8C81-B4AD89603A1C
+-->
