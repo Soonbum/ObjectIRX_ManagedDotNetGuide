@@ -153,6 +153,14 @@ public static void CommandName()
         * LayerTable
           - LayerTableRecord
 
+### 오브젝트
+
+* 오브젝트의 ID는 다음과 같습니다.
+  - Entity handle: 이 ID는 불변입니다. 도면을 외부 파일로 내보낸 뒤에라도 나중에 객체에 접근할 때 유용한 방법입니다.
+  - ObjectId: DB가 메모리에 로드된 동안에만 유효합니다. 휘발성이 있는 ID입니다. (가장 많이 사용하는 방법)
+  - Instance pointer
+* GetObject 메서드는 DBObject를 리턴합니다.
+
 ### 기능 구현 예시
 
 * 레이어 관리
@@ -751,12 +759,255 @@ acDoc.SendStringToExecute("._circle 2,2,0 4 ", true, false, false);    // 중심
 acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든 것이 보이도록 Zoom
 ```
 
-* 객체의 ID는 다음과 같습니다.
-  - Entity handle: 이 ID는 불변입니다. 도면을 외부 파일로 내보낸 뒤에라도 나중에 객체에 접근할 때 유용한 방법입니다.
-  - ObjectId: DB가 메모리에 로드된 동안에만 유효합니다. 휘발성이 있는 ID입니다. (가장 많이 사용하는 방법)
-  - Instance pointer
-* GetObject 메서드는 DBObject를 리턴합니다.
+* 오브젝트 그리기
+  - Line 오브젝트
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // (5, 5, 0)과 (12, 3, 0)을 잇는 라인 생성
+        using (Line acLine = new Line(new Point3d(5, 5, 0), new Point3d(12, 3, 0)))
+        {
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acLine);
+            acTrans.AddNewlyCreatedDBObject(acLine, true);
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+    }
+    ```
+  - Polyline 오브젝트
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // 3점을 잇는 2개의 세그먼트를 가진 폴리라인 생성
+        using (Polyline acPoly = new Polyline())
+        {
+            acPoly.AddVertexAt(0, new Point2d(2, 4), 0, 0, 0);
+            acPoly.AddVertexAt(1, new Point2d(4, 2), 0, 0, 0);
+            acPoly.AddVertexAt(2, new Point2d(6, 4), 0, 0, 0);
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acPoly);
+            acTrans.AddNewlyCreatedDBObject(acPoly, true);
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+    }
+    ```
+  - Circle 오브젝트
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // 중심 (2, 3, 0), 반지름 4.25인 원 생성
+        using (Circle acCirc = new Circle())
+        {
+            acCirc.Center = new Point3d(2, 3, 0);
+            acCirc.Radius = 4.25;
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acCirc);
+            acTrans.AddNewlyCreatedDBObject(acCirc, true);
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+    }
+    ```
+  - Arc 오브젝트
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // 중심 (6.25, 9.125, 0), 반지름 6, 시작 각도 64 degree, 끝 각도 204 degree인 호 생성
+        // (64 degree = 1.117 radian, 204 degree = 3.5605)
+        using (Arc acArc = new Arc(new Point3d(6.25, 9.125, 0), 6, 1.117, 3.5605))
+        {
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acArc);
+            acTrans.AddNewlyCreatedDBObject(acArc, true);
+        }
+
+        // Save the new line to the database
+        acTrans.Commit();
+    }
+    ```
+  - Spline 오브젝트
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // 스플라인 곡선이 지나갈 점 3개를 지정함
+        Point3dCollection ptColl = new Point3dCollection();
+        ptColl.Add(new Point3d(0, 0, 0));
+        ptColl.Add(new Point3d(5, 5, 0));
+        ptColl.Add(new Point3d(10, 0, 0));
+
+        // 점 (0.5, 0.5, 0)의 3D 벡터 가져옴
+        Vector3d vecTan = new Point3d(0.5, 0.5, 0).GetAsVector();
+
+        // 시작 및 끝 접선이 (0.5, 0.5, 0.0)이고 점 (0, 0, 0), (5, 5, 0), (10, 0, 0)을 통과하는 스플라인을 생성함
+        using (Spline acSpline = new Spline(ptColl, vecTan, vecTan, 4, 0.0))
+        {
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acSpline);
+            acTrans.AddNewlyCreatedDBObject(acSpline, true);
+        }
+
+        // Save the new line to the database
+        acTrans.Commit();
+    }
+    ```
+  - Point 오브젝트
+    * Pdmode: 점 스타일 지정 (Pdmode == 1은 안 보이는 점)
+      - ![image](https://github.com/Soonbum/ObjectIRX_ManagedDotNetGuide/assets/16474083/1046474b-b3c8-4f07-b6ed-39cc26fb34ce)
+      - ![image](https://github.com/Soonbum/ObjectIRX_ManagedDotNetGuide/assets/16474083/de868930-4172-4224-8839-6019dfb992a0)
+    * Pdsize: 점 크기 지정 (Pdmode가 0, 1 이외인 경우)
+      - 0: 그래픽 영역 높이의 5% 크기
+      - 양수: 포인트 이미지의 크기
+      - 음수: 뷰포트 크기의 퍼센트
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Model space의 (4, 3, 0)에 점 생성
+        using (DBPoint acPoint = new DBPoint(new Point3d(4, 3, 0)))
+        {
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acPoint);
+            acTrans.AddNewlyCreatedDBObject(acPoint, true);
+        }
+
+        // 도면의 모든 점 오브젝트에 대한 스타일 설정
+        acCurDb.Pdmode = 34;
+        acCurDb.Pdsize = 1;
+
+        // Save the new object to the database
+        acTrans.Commit();
+    }
+    ```
+  - Solid-Filled 영역
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // 설명: 처음 두 점은 폴리곤의 가장자리 하나를 정의함, 3번째 점은 2번째 점으로부터 대각선 반대편 점을 의미함, 4번째 점과 3번째 점이 같을 경우 삼각형이 됨
+
+        // Model space에 (나비 넥타이 모양) 사변형 솔리드 생성
+        using (Solid ac2DSolidBow = new Solid(new Point3d(0, 0, 0),
+                                        new Point3d(5, 0, 0),
+                                        new Point3d(5, 8, 0),
+                                        new Point3d(0, 8, 0)))
+        {
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(ac2DSolidBow);
+            acTrans.AddNewlyCreatedDBObject(ac2DSolidBow, true);
+        }
+
+        // Model space에 (정사각형) 사변형 솔리드 생성
+        using (Solid ac2DSolidSqr = new Solid(new Point3d(10, 0, 0),
+                                        new Point3d(15, 0, 0),
+                                        new Point3d(10, 8, 0),
+                                        new Point3d(15, 8, 0)))
+        {
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(ac2DSolidSqr);
+            acTrans.AddNewlyCreatedDBObject(ac2DSolidSqr, true);
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+    }
+    ```
 
 <!--
-https://help.autodesk.com/view/OARX/2024/ENU/?guid=GUID-FAFA37D8-1C15-408B-8419-DB27225664B6
+https://help.autodesk.com/view/OARX/2024/ENU/?guid=GUID-9CD22AE5-8F66-4925-A155-95852BAFD565
 -->
