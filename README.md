@@ -121,9 +121,11 @@ public static void CommandName()
     // 트랜잭션: DB에서 말하는 그 "트랜잭션"을 의미함
     // Undo/Redo 동작을 위해 동작을 트랜잭션 단위별로 나누어 놓기 위해 필요함
     // 데이터베이스 내 변경사항이 없을 경우 생략해도 됨
+
     // 만약 내부 스코프의 Open()된 오브젝트들을 한꺼번에 자동으로 Close()하고 싶으면 StartTransaction 대신 StartOpenCloseTransaction 메서드를 사용하면 편리함
     // TransactionManager.NumberOfActiveTransactions 프로퍼티: 활성 트랜잭션 개수를 알 수 있음
     // 만약 Model space에 오브젝트 쓰기 동작을 한 경우, AppendEntity와 AddNewlyCreatedDBObject 함수를 사용해야 함
+    // Nested 구조를 가질 수도 있음
     using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
     {
         // TODO
@@ -756,5 +758,5 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 * GetObject 메서드는 DBObject를 리턴합니다.
 
 <!--
-https://help.autodesk.com/view/OARX/2024/ENU/?guid=GUID-8D56532D-2B17-48D1-8C81-B4AD89603A1C
+https://help.autodesk.com/view/OARX/2024/ENU/?guid=GUID-FAFA37D8-1C15-408B-8419-DB27225664B6
 -->
