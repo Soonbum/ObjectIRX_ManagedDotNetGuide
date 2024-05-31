@@ -121,12 +121,15 @@ public static void CommandName()
     // 트랜잭션: DB에서 말하는 그 "트랜잭션"을 의미함
     // Undo/Redo 동작을 위해 동작을 트랜잭션 단위별로 나누어 놓기 위해 필요함
     // 데이터베이스 내 변경사항이 없을 경우 생략해도 됨
+    // 만약 내부 스코프의 Open()된 오브젝트들을 한꺼번에 자동으로 Close()하고 싶으면 StartTransaction 대신 StartOpenCloseTransaction 메서드를 사용하면 편리함
+    // TransactionManager.NumberOfActiveTransactions 프로퍼티: 활성 트랜잭션 개수를 알 수 있음
+    // 만약 Model space에 오브젝트 쓰기 동작을 한 경우, AppendEntity와 AddNewlyCreatedDBObject 함수를 사용해야 함
     using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
     {
         // TODO
 
-        acTrans.Commit();    // DB에 변경사항 반영 (트랜잭션 사용시에만 해당됨)
-    }
+        acTrans.Commit();    // DB에 변경사항 반영 (트랜잭션 사용시에만 해당됨), 만약 .Abort() 함수를 사용하면 변경사항을 버림 (롤백)
+    }   // using 문을 사용하면 자동으로 acTrans.Dispose()를 호출함
 }
 ```
 
@@ -745,6 +748,12 @@ Document acDoc = Application.DocumentManager.MdiActiveDocument;
 acDoc.SendStringToExecute("._circle 2,2,0 4 ", true, false, false);    // 중심이 (2, 2, 0)이고 반지름이 4인 원
 acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든 것이 보이도록 Zoom
 ```
+
+* 객체의 ID는 다음과 같습니다.
+  - Entity handle: 이 ID는 불변입니다. 도면을 외부 파일로 내보낸 뒤에라도 나중에 객체에 접근할 때 유용한 방법입니다.
+  - ObjectId: DB가 메모리에 로드된 동안에만 유효합니다. 휘발성이 있는 ID입니다. (가장 많이 사용하는 방법)
+  - Instance pointer
+* GetObject 메서드는 DBObject를 리턴합니다.
 
 <!--
 https://help.autodesk.com/view/OARX/2024/ENU/?guid=GUID-8D56532D-2B17-48D1-8C81-B4AD89603A1C
