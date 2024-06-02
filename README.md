@@ -564,17 +564,47 @@ public class CuiManager : IDisposable
             row.Add(button);
             button.Dispose();
 
-            // ...
-            //button = new RibbonCommandItem();
-            //button.DefaultToolTip = "팔레트 창 열기";
-            //button.DefaultHelpString = String.Format(CuiManager.Literals.defaultHelpBase, button.DefaultToolTip);
-            //button.Style = CuiRibbonButtonStyle.LARGE_WITH_TEXT;
-            //button.Command = "OpenPaletteSet";
-            //button.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, button.GetType().Name, 1);
+            // 구분자
+            separator = new RibbonSeparator();
+            separator.Style = CuiRibbonSeparatorStyle.LINE;
+            separator.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, separator.GetType().Name, 1);
 
-            //row.Add(button);
-            //button.Dispose();
+            row.Add(separator);
+            separator.Dispose();
 
+            // 3번째 버튼
+            button = new RibbonCommandItem();
+            button.DefaultToolTip = "DWG Clipping";
+            button.DefaultHelpString = String.Format(CuiManager.Literals.defaultHelpBase, button.DefaultToolTip);
+            button.Style = CuiRibbonButtonStyle.LARGE_WITH_TEXT;
+            //button.BMPFileNameLgColor = @".\RibbonImage\ExportToIMG_32x32.bmp";
+            button.Command = "DWGClipping";
+            button.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, button.GetType().Name, 1);
+
+            row.Add(button);
+            button.Dispose();
+
+            // 구분자
+            separator = new RibbonSeparator();
+            separator.Style = CuiRibbonSeparatorStyle.LINE;
+            separator.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, separator.GetType().Name, 1);
+
+            row.Add(separator);
+            separator.Dispose();
+
+            // 4번째 버튼
+            button = new RibbonCommandItem();
+            button.DefaultToolTip = "Send Images to Server";
+            button.DefaultHelpString = String.Format(CuiManager.Literals.defaultHelpBase, button.DefaultToolTip);
+            button.Style = CuiRibbonButtonStyle.LARGE_WITH_TEXT;
+            //button.BMPFileNameLgColor = @".\RibbonImage\ExportToIMG_32x32.bmp";
+            button.Command = "SendToServer";
+            button.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, button.GetType().Name, 1);
+
+            row.Add(button);
+            button.Dispose();
+
+            // 리본 탭, 리본 패널 생성
             tab = new RibbonTab();
             tab.Uid = CuiManager.Literals.uidRibbonTab;
             CuiManager.GetManager().RegisterCuiElement(tab);
