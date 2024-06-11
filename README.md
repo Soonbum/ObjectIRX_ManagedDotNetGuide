@@ -1662,6 +1662,166 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-<!--
-https://help.autodesk.com/view/OARX/2024/ENU/?guid=GUID-9CD22AE5-8F66-4925-A155-95852BAFD565
--->
+* 영역 (Regions) 생성
+  - ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create an in memory circle
+        using (Circle acCirc = new Circle())
+        {
+            acCirc.Center = new Point3d(2, 2, 0);
+            acCirc.Radius = 5;
+
+            // Adds the circle to an object array
+            DBObjectCollection acDBObjColl = new DBObjectCollection();
+            acDBObjColl.Add(acCirc);
+
+            // Calculate the regions based on each closed loop
+            DBObjectCollection myRegionColl = new DBObjectCollection();
+            myRegionColl = Region.CreateFromCurves(acDBObjColl);
+            Region acRegion = myRegionColl[0] as Region;
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acRegion);
+            acTrans.AddNewlyCreatedDBObject(acRegion, true);
+
+            // Dispose of the in memory circle not appended to the database
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+    }
+    ```
+  - ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create two in memory circles
+        using (Circle acCirc1 = new Circle())
+        {
+            acCirc1.Center = new Point3d(4, 4, 0);
+            acCirc1.Radius = 2;
+
+            using (Circle acCirc2 = new Circle())
+            {
+                acCirc2.Center = new Point3d(4, 4, 0);
+                acCirc2.Radius = 1;
+
+                // Adds the circle to an object array
+                DBObjectCollection acDBObjColl = new DBObjectCollection();
+                acDBObjColl.Add(acCirc1);
+                acDBObjColl.Add(acCirc2);
+
+                // Calculate the regions based on each closed loop
+                DBObjectCollection myRegionColl = new DBObjectCollection();
+                myRegionColl = Region.CreateFromCurves(acDBObjColl);
+                Region acRegion1 = myRegionColl[0] as Region;
+                Region acRegion2 = myRegionColl[1] as Region;
+
+                // Subtract region 1 from region 2
+                if (acRegion1.Area > acRegion2.Area)
+                {
+                    // Subtract the smaller region from the larger one
+                    acRegion1.BooleanOperation(BooleanOperationType.BoolSubtract, acRegion2);
+                    acRegion2.Dispose();
+
+                    // Add the final region to the database
+                    acBlkTblRec.AppendEntity(acRegion1);
+                    acTrans.AddNewlyCreatedDBObject(acRegion1, true);
+                }
+                else
+                {
+                    // Subtract the smaller region from the larger one
+                    acRegion2.BooleanOperation(BooleanOperationType.BoolSubtract, acRegion1);
+                    acRegion1.Dispose();
+
+                    // Add the final region to the database
+                    acBlkTblRec.AppendEntity(acRegion2);
+                    acTrans.AddNewlyCreatedDBObject(acRegion2, true);
+                }
+
+                // Dispose of the in memory objects not appended to the database
+            }
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+    }
+    ```
+
+* 해치 (Hatches) 생성
+  - ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a circle object for the closed boundary to hatch
+        using (Circle acCirc = new Circle())
+        {
+            acCirc.Center = new Point3d(3, 3, 0);
+            acCirc.Radius = 1;
+
+            // Add the new circle object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acCirc);
+            acTrans.AddNewlyCreatedDBObject(acCirc, true);
+
+            // Adds the circle to an object id array
+            ObjectIdCollection acObjIdColl = new ObjectIdCollection();
+            acObjIdColl.Add(acCirc.ObjectId);
+
+            // Create the hatch object and append it to the block table record
+            using (Hatch acHatch = new Hatch())
+            {
+                acBlkTblRec.AppendEntity(acHatch);
+                acTrans.AddNewlyCreatedDBObject(acHatch, true);
+
+                // Set the properties of the hatch object
+                // Associative must be set after the hatch object is appended to the 
+                // block table record and before AppendLoop
+                acHatch.SetHatchPattern(HatchPatternType.PreDefined, "ANSI31");
+                acHatch.Associative = true;
+                acHatch.AppendLoop(HatchLoopTypes.Outermost, acObjIdColl);
+                acHatch.EvaluateHatch(true);
+            }
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+    }
+    ```
