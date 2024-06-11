@@ -274,14 +274,14 @@ Database db = doc.Database;
 PromptPointResult ppr1 = ed.GetPoint("첫 번째 지점을 선택하십시오:");
 
 if (ppr1.Status != PromptStatus.OK) return;
-Point3d firstPoint = ppr1.Value;
+Teigha.Geometry.Point3d firstPoint = ppr1.Value;
 
 if (ppr1.Status == PromptStatus.Cancel) return;
 
 PromptPointResult ppr2 = ed.GetCorner("두 번째 지점을 선택하십시오:", ppr1.Value);
 
 if (ppr2.Status != PromptStatus.OK) return;
-Point3d secondPoint = ppr2.Value;
+Teigha.Geometry.Point3d secondPoint = ppr2.Value;
 
 // 선택된 두 점을 통해서 Extents2d 객체 생성
 Extents2d plotWindow = new Extents2d(
@@ -296,7 +296,6 @@ using (Transaction tr = db.TransactionManager.StartTransaction())
     // 용지 방향
     bool OrientationLandScape = true;
 
-    // 팝업 컨트롤 값에 따라 용지 방향 결정
     if (popupContainerEdit_PaperOrientation.Text == "가로")
         OrientationLandScape = true;
     else
@@ -331,8 +330,8 @@ using (Transaction tr = db.TransactionManager.StartTransaction())
         PlotSettingsValidator plotSettingsValidator = PlotSettingsValidator.Current;
         plotSettingsValidator.SetPlotWindowArea(plotSettings, plotWindow);      // 화면 범위
 
-        // 화면 맞춤
-        plotSettingsValidator.SetPlotType(plotSettings, PlotType.Window);    // 인쇄 범위 > 인쇄 대상: 윈도우
+        // scaled to fit
+        plotSettingsValidator.SetPlotType(plotSettings, PlotType.Window);
         plotSettingsValidator.SetUseStandardScale(plotSettings, true);
         plotSettingsValidator.SetStdScaleType(plotSettings, StdScaleType.ScaleToFit);
         plotSettingsValidator.SetPlotCentered(plotSettings, true);
@@ -340,6 +339,7 @@ using (Transaction tr = db.TransactionManager.StartTransaction())
             plotSettingsValidator.SetPlotRotation(plotSettings, PlotRotation.Degrees090);   // 가로 방향
         else
             plotSettingsValidator.SetPlotRotation(plotSettings, PlotRotation.Degrees000);   // 세로 방향
+
 
         // Use standard DWF PC3, as for today we're just plotting to file
         plotSettingsValidator.SetPlotConfigurationName(plotSettings, "PublishToWeb PNG.pc3", paperSize); // Needs to be a device that can print directly and valid media name.
@@ -378,8 +378,31 @@ using (Transaction tr = db.TransactionManager.StartTransaction())
             }
             catch (System.Exception error) { System.Exception Err = error; }
 
-            MessageBox.Show("Plot을 완료했습니다.", "성공", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            // outputFilePath 이미지 파일을 그레이스케일로 변환
+            if (checkEdit_grayscale.Checked)
+            {
+                using (var src = new Mat(outputFilePath, ImreadModes.Color))
+                {
+                    // 그레이스케일 이미지로 변환
+                    using (var gray = new Mat())
+                    {
+                        Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
+
+                        using (var enhancedGray = new Mat())
+                        {
+                            // 히스토그램 균등화를 통해 대비를 증가시킴
+                            Cv2.EqualizeHist(gray, enhancedGray);
+
+                            // 그레이스케일 이미지 저장
+                            Cv2.ImWrite(outputFilePath, enhancedGray);
+                        }
+                    }
+                }
+            }
+
+            XtraMessageBox.Show("Plot을 완료했습니다.", "성공", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
+
         else
         {
             ed.WriteMessage("\n다른 플롯이 진행 중입니다.");
@@ -387,6 +410,296 @@ using (Transaction tr = db.TransactionManager.StartTransaction())
     }
 
     tr.Commit();
+}
+```
+
+* 레이어 별로 이미지 Clipping해서 플롯(인쇄)하기
+
+```cs
+private async void ImageSaveButton_Click(object sender, EventArgs e)
+{
+    Document doc = IntelliCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+    Editor ed = doc.Editor;
+    Database db = doc.Database;
+
+    // 사용자로부터 두 점을 입력받아 화면 범위를 선택
+    PromptPointResult ppr1 = ed.GetPoint("첫 번째 지점을 선택하십시오:");
+
+    if (ppr1.Status != PromptStatus.OK) return;
+    Teigha.Geometry.Point3d firstPoint = ppr1.Value;
+
+    if (ppr1.Status == PromptStatus.Cancel) return;
+
+    PromptPointResult ppr2 = ed.GetCorner("두 번째 지점을 선택하십시오:", ppr1.Value);
+
+    if (ppr2.Status != PromptStatus.OK) return;
+    Teigha.Geometry.Point3d secondPoint = ppr2.Value;
+
+    // 선택된 두 점을 통해서 Extents2d 객체 생성
+    Extents2d plotWindow = new Extents2d(
+        Math.Min(firstPoint.X, secondPoint.X),
+        Math.Min(firstPoint.Y, secondPoint.Y),
+        Math.Max(firstPoint.X, secondPoint.X),
+        Math.Max(firstPoint.Y, secondPoint.Y)
+    );
+
+    // 진행바 초기화
+    progressBarControl.Position = 0;
+
+    using (Transaction tr = db.TransactionManager.StartTransaction())
+    {
+        // 용지 방향
+        bool OrientationLandScape = true;
+
+        if (popupContainerEdit_PaperOrientation.Text == "가로")
+            OrientationLandScape = true;
+        else
+            OrientationLandScape = false;
+
+        // 용지 크기
+        string paperSize = popupContainerEdit_PaperSize.Text;
+
+        // 파일 저장 다이얼로그 표시
+        System.Windows.Forms.SaveFileDialog saveFileDialog = new System.Windows.Forms.SaveFileDialog();
+        saveFileDialog.Filter = "이미지 파일|*.png";
+        saveFileDialog.Title = "이미지 파일을 저장하십시오.";
+        saveFileDialog.FileName = "TestPrint.png";
+
+        if (saveFileDialog.ShowDialog() == DialogResult.OK)
+        {
+            progressBarControl.Show();
+
+            string outputFilePath = saveFileDialog.FileName;
+
+            // 현재 레이아웃을 플롯(인쇄)
+            BlockTableRecord currentSpace = (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForRead);
+            Layout layout = (Layout)tr.GetObject(currentSpace.LayoutId, OpenMode.ForRead);
+
+            // PlotInfo 객체를 레이아웃에 연결
+            PlotInfo plotInfo = new PlotInfo();
+            plotInfo.Layout = currentSpace.LayoutId;
+
+            // 레이아웃 설정을 기반으로 PlotSettings 객체 설정
+            PlotSettings plotSettings = new PlotSettings(layout.ModelType);
+            plotSettings.CopyFrom(layout);
+
+            // The PlotSettingsValidator helps create a valid PlotSettings object
+            PlotSettingsValidator plotSettingsValidator = PlotSettingsValidator.Current;
+            plotSettingsValidator.SetPlotWindowArea(plotSettings, plotWindow);      // 화면 범위
+
+            // scaled to fit
+            plotSettingsValidator.SetPlotType(plotSettings, PlotType.Window);
+            plotSettingsValidator.SetUseStandardScale(plotSettings, true);
+            plotSettingsValidator.SetStdScaleType(plotSettings, StdScaleType.ScaleToFit);
+            plotSettingsValidator.SetPlotCentered(plotSettings, true);
+            if (OrientationLandScape)
+                plotSettingsValidator.SetPlotRotation(plotSettings, PlotRotation.Degrees090);   // 가로 방향
+            else
+                plotSettingsValidator.SetPlotRotation(plotSettings, PlotRotation.Degrees000);   // 세로 방향
+
+
+            // Use standard DWF PC3, as for today we're just plotting to file
+            plotSettingsValidator.SetPlotConfigurationName(plotSettings, "PublishToWeb PNG.pc3", paperSize); // Needs to be a device that can print directly and valid media name.
+            // plotSettingsValidator.SetCurrentStyleSheet(plotSettings, "Icad.ctb");    // Set stylesheet
+
+            // Save the modified PlotSettings to the database
+            layout.UpgradeOpen();
+            layout.CopyFrom(plotSettings);
+
+            plotInfo.OverrideSettings = plotSettings;
+            PlotInfoValidator plotInfoValidator = new PlotInfoValidator();
+            plotInfoValidator.MediaMatchingPolicy = MatchingPolicy.MatchEnabled;
+            plotInfoValidator.Validate(plotInfo);
+
+            // A PlotEngine does the actual plotting
+            if (PlotFactory.ProcessPlotState == ProcessPlotState.NotPlotting)
+            {
+                // 전체 플롯
+                try
+                {
+                    PlotEngine plotEngine = PlotFactory.CreatePublishEngine();
+
+                    plotEngine.BeginPlot(null, null);
+                    PlotConfig config = plotInfo.ValidatedConfig;
+                    config.IsPlotToFile = true;
+                    plotEngine.BeginDocument(plotInfo, "TestPrint", null, 1, true, outputFilePath);
+                    PlotPageInfo plotPageInfo = new PlotPageInfo();
+                    plotEngine.BeginPage(plotPageInfo, plotInfo, true, null);
+                    plotEngine.BeginGenerateGraphics(null);
+
+                    plotEngine.EndGenerateGraphics(null);
+                    plotEngine.EndPage(null);
+                    plotEngine.EndDocument(null);
+                    plotEngine.EndPlot(null);
+                    plotEngine.Destroy();
+                    plotEngine = null;
+                }
+                catch (System.Exception error) { System.Exception Err = error; }
+
+                // outputFilePath 이미지 파일을 그레이스케일로 변환
+                if (checkEdit_grayscale.Checked)
+                {
+                    using (var src = new Mat(outputFilePath, ImreadModes.Color))
+                    {
+                        // 그레이스케일 이미지로 변환
+                        using (var gray = new Mat())
+                        {
+                            Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
+
+                            using (var enhancedGray = new Mat())
+                            {
+                                // 히스토그램 균등화를 통해 대비를 증가시킴
+                                Cv2.EqualizeHist(gray, enhancedGray);
+
+                                // 그레이스케일 이미지 저장
+                                Cv2.ImWrite(outputFilePath, enhancedGray);
+                            }
+                        }
+                    }
+                }
+
+                // 현재 데이터베이스의 레이어 테이블 반환
+                LayerTable acLyrTbl;
+                acLyrTbl = tr.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+                // 플러그인 실행 전 레이어 상태를 저장함
+                List<(LayerTableRecord, bool)> layerList = new List<(LayerTableRecord, bool)>();
+
+                foreach (ObjectId acObjId in acLyrTbl)
+                {
+                    LayerTableRecord acLyrTblRec;
+                    acLyrTblRec = tr.GetObject(acObjId, OpenMode.ForWrite) as LayerTableRecord;
+
+                    layerList.Add((acLyrTblRec, acLyrTblRec.IsOff));
+                }
+
+                // 레이어 모두 끄기
+                foreach (ObjectId acObjId in acLyrTbl)
+                {
+                    LayerTableRecord acLyrTblRec;
+                    acLyrTblRec = tr.GetObject(acObjId, OpenMode.ForWrite) as LayerTableRecord;
+
+                    acLyrTblRec.IsOff = true;
+                }
+
+                // 레이어를 하나씩 켜고 플롯 후 레이어를 다시 끔
+                foreach (ObjectId acObjId in acLyrTbl)
+                {
+                    LayerTableRecord acLyrTblRec;
+                    acLyrTblRec = tr.GetObject(acObjId, OpenMode.ForWrite) as LayerTableRecord;
+
+                    acLyrTblRec.IsOff = false;  // 레이어 켜기
+
+                    // 파일명은 "TestPrint - 레이어명.png"로 저장 (TestPrint는 기본값)
+                    string newOutputFilePath = outputFilePath.Replace(".png", " - " + acLyrTblRec.Name + ".png");
+
+                    // 진행바 표시하기
+                    progressBarControl.Properties.Step = 1;
+                    progressBarControl.Properties.Maximum = layerList.Count();
+                    await Task.Run((() => progressBarControl.PerformStep()));
+
+                    // 레이어별 플롯
+                    try
+                    {
+                        PlotEngine plotEngine = PlotFactory.CreatePublishEngine();
+
+                        plotEngine.BeginPlot(null, null);
+                        PlotConfig config = plotInfo.ValidatedConfig;
+                        config.IsPlotToFile = true;
+                        plotEngine.BeginDocument(plotInfo, "TestPrint", null, 1, true, newOutputFilePath);
+                        PlotPageInfo plotPageInfo = new PlotPageInfo();
+                        plotEngine.BeginPage(plotPageInfo, plotInfo, true, null);
+                        plotEngine.BeginGenerateGraphics(null);
+
+                        plotEngine.EndGenerateGraphics(null);
+                        plotEngine.EndPage(null);
+                        plotEngine.EndDocument(null);
+                        plotEngine.EndPlot(null);
+                        plotEngine.Destroy();
+                        plotEngine = null;
+
+
+                    }
+                    catch (System.Exception error) { System.Exception Err = error; }
+
+                    // newOutputFilePath 이미지 파일을 그레이스케일로 변환
+                    if (checkEdit_grayscale.Checked)
+                    {
+                        using (var src = new Mat(newOutputFilePath, ImreadModes.Color))
+                        {
+                            // 그레이스케일 이미지로 변환
+                            using (var gray = new Mat())
+                            {
+                                Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
+
+                                using (var enhancedGray = new Mat())
+                                {
+                                    // 히스토그램 균등화를 통해 대비를 증가시킴
+                                    Cv2.EqualizeHist(gray, enhancedGray);
+
+                                    // 그레이스케일 이미지 저장
+                                    Cv2.ImWrite(newOutputFilePath, enhancedGray);
+                                }
+                            }
+                        }
+                    }
+
+                    // 흰색 이미지인 경우 파일 삭제
+                    Mat image = Cv2.ImRead(newOutputFilePath, ImreadModes.Color);
+                    if (IsWhiteImage(image))
+                    {
+                        System.IO.File.Delete(newOutputFilePath);   // 생성했던 newOutputFilePath 파일 삭제
+                    }
+
+                    acLyrTblRec.IsOff = true;   // 레이어 끄기
+
+                    GC.Collect();   // 1회 반복 후 메모리 정리
+                }
+
+                // 레이어 상태를 복구함
+                foreach (var layer in layerList)
+                {
+                    layer.Item1.IsOff = layer.Item2;
+                }
+
+                XtraMessageBox.Show("Plot을 완료했습니다.", "성공", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+
+            else
+            {
+                ed.WriteMessage("\n다른 플롯이 진행 중입니다.");
+            }
+
+            progressBarControl.Hide();
+        }
+
+        tr.Commit();
+    }
+
+    GC.Collect();
+}
+
+static bool IsWhiteImage(Mat image)
+{
+    // 이미지가 비어 있는지 확인
+    if (image.Empty())
+    {
+        throw new ArgumentException("이미지를 읽을 수 없습니다.");
+    }
+
+    // 흰색 범위를 정의 (BGR)
+    Scalar lowerWhite = new Scalar(255, 255, 255);
+    Scalar upperWhite = new Scalar(255, 255, 255);
+
+    // 흰색 범위 내의 픽셀들을 이진화
+    Mat mask = new Mat();
+    Cv2.InRange(image, lowerWhite, upperWhite, mask);
+
+    // 흰색이 아닌 픽셀 수를 계산
+    int nonWhitePixelCount = Cv2.CountNonZero(mask);
+
+    // 모든 픽셀이 흰색인지 확인
+    return nonWhitePixelCount == image.Total();
 }
 ```
 
@@ -577,7 +890,7 @@ public class CuiManager : IDisposable
             button.DefaultToolTip = "DWG Clipping";
             button.DefaultHelpString = String.Format(CuiManager.Literals.defaultHelpBase, button.DefaultToolTip);
             button.Style = CuiRibbonButtonStyle.LARGE_WITH_TEXT;
-            //button.BMPFileNameLgColor = @".\RibbonImage\ExportToIMG_32x32.bmp";
+            button.BMPFileNameLgColor = @".\RibbonImage\DWGClipping_32x32.bmp";
             button.Command = "DWGClipping";
             button.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, button.GetType().Name, 1);
 
@@ -597,8 +910,28 @@ public class CuiManager : IDisposable
             button.DefaultToolTip = "Send Images to Server";
             button.DefaultHelpString = String.Format(CuiManager.Literals.defaultHelpBase, button.DefaultToolTip);
             button.Style = CuiRibbonButtonStyle.LARGE_WITH_TEXT;
-            //button.BMPFileNameLgColor = @".\RibbonImage\ExportToIMG_32x32.bmp";
+            button.BMPFileNameLgColor = @".\RibbonImage\SendImagesToServer_32x32.bmp";
             button.Command = "SendToServer";
+            button.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, button.GetType().Name, 1);
+
+            row.Add(button);
+            button.Dispose();
+
+            // 구분자
+            separator = new RibbonSeparator();
+            separator.Style = CuiRibbonSeparatorStyle.LINE;
+            separator.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, separator.GetType().Name, 1);
+
+            row.Add(separator);
+            separator.Dispose();
+
+            // 5번째 버튼
+            button = new RibbonCommandItem();
+            button.DefaultToolTip = "Receive Images from Client";
+            button.DefaultHelpString = String.Format(CuiManager.Literals.defaultHelpBase, button.DefaultToolTip);
+            button.Style = CuiRibbonButtonStyle.LARGE_WITH_TEXT;
+            button.BMPFileNameLgColor = @".\RibbonImage\ReceiveFromClient_32x32.bmp";
+            button.Command = "ReceiveFromClient";
             button.Uid = String.Format(CuiManager.Literals.uidCuiElementBase, button.GetType().Name, 1);
 
             row.Add(button);
@@ -703,6 +1036,285 @@ public class CuiManager : IDisposable
         {
             profile.BuildUILayout(true, true, true, true);
         }
+    }
+}
+```
+
+* 소켓 전송 예제 (클라이언트)
+
+![image](https://github.com/Soonbum/ObjectIRX_ManagedDotNetGuide/assets/16474083/7a021fca-4fac-4259-8155-812223d0224f)
+
+
+```cs
+public partial class ClientForm : DevExpress.XtraEditors.XtraForm
+{
+    bool bSendSuccess;
+
+    public ClientForm()
+    {
+        InitializeComponent();
+    }
+
+    private void fileSelectButton_Click(object sender, EventArgs e)
+    {
+        // 파일 선택 버튼 클릭 시 파일 선택 다이얼로그를 띄움
+        OpenFileDialog openFileDialog = new OpenFileDialog();
+        openFileDialog.Title = "파일 선택";
+        openFileDialog.Filter = "모든 파일(*.*)|*.*";
+        openFileDialog.Multiselect = true;
+
+        if (openFileDialog.ShowDialog() == DialogResult.OK)
+        {
+            // 선택한 모든 파일을 fileListBoxControl에 추가
+            foreach (string fileName in openFileDialog.FileNames)
+            {
+                fileListBoxControl.Items.Add(fileName);
+            }
+        }
+    }
+
+    private void fileClearButton_Click(object sender, EventArgs e)
+    {
+        // 모두 삭제 버튼 클릭 시 fileListBoxControl의 모든 항목을 삭제
+        fileListBoxControl.Items.Clear();
+    }
+
+    private async void sendButton_Click(object sender, EventArgs e)
+    {
+        bSendSuccess = false;
+        progressBarControl.Position = 0;
+
+        // 파일 보내기 버튼 클릭 시 서버IP/포트번호로 fileListBoxControl에 있는 파일들을 전송
+        if (string.IsNullOrEmpty(textEdit_serverIP.Text) || string.IsNullOrEmpty(textEdit_serverPort.Text))
+        {
+            XtraMessageBox.Show("서버 IP 주소와 포트 번호를 입력해 주세요.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        // 소켓을 열고 서버에 파일 전송
+        // 프로젝트명 문자열을 먼저 보내고 fileListBoxControl에 있는 파일들을 전송
+        try
+        {
+            try
+            {
+                using (TcpClient client = new TcpClient(textEdit_serverIP.Text, int.Parse(textEdit_serverPort.Text)))
+                using (NetworkStream clientStream = client.GetStream())
+                {
+                    // Send project name
+                    string projectName = textEdit_projectName.Text;
+                    byte[] projectNameBytes = Encoding.UTF8.GetBytes(projectName);
+                    byte[] projectNameLength = BitConverter.GetBytes(projectNameBytes.Length);
+                    clientStream.Write(projectNameLength, 0, projectNameLength.Length); // 프로젝트 이름 길이 송신
+                    clientStream.Write(projectNameBytes, 0, projectNameBytes.Length);   // 프로젝트 이름 송신
+
+                    // 파일 개수 송신
+                    int fileCount = fileListBoxControl.ItemCount;
+                    byte[] fileCountBytes = BitConverter.GetBytes(fileCount);
+                    clientStream.Write(fileCountBytes, 0, fileCountBytes.Length);
+
+                    progressBarControl.Properties.Maximum = fileCount;
+
+                    for (int i = 0; i < fileCount; i++)
+                    {
+                        string filePath = fileListBoxControl.Items[i].ToString();
+
+                        // Send file name
+                        byte[] fileNameBytes = Encoding.UTF8.GetBytes(filePath);
+                        byte[] fileNameLength = BitConverter.GetBytes(fileNameBytes.Length);
+                        clientStream.Write(fileNameLength, 0, fileNameLength.Length);   // 파일명 길이 송신
+                        clientStream.Write(fileNameBytes, 0, fileNameBytes.Length);     // 파일명 송신
+
+                        byte[] fileLength = BitConverter.GetBytes(new FileInfo(filePath).Length);
+                        clientStream.Write(fileLength, 0, fileLength.Length);           // 파일 크기 송신
+
+                        // Send file content
+                        using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+                        {
+                            byte[] buffer = new byte[1024];
+                            int bytesRead;
+
+                            while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
+                            {
+                                clientStream.Write(buffer, 0, bytesRead);  // 파일 내용 송신
+                            }
+                        }
+
+                        await Task.Run((() => progressBarControl.PerformStep()));
+
+                        GC.Collect();
+                    }
+
+                    bSendSuccess = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Handle exception
+            }
+        }
+        catch (Exception ex)
+        {
+            XtraMessageBox.Show($"서버에 연결할 수 없습니다. ({ex.Message})", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        if (bSendSuccess)
+            XtraMessageBox.Show("파일 전송이 완료되었습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+}
+```
+
+* 소켓 전송 예제 (서버)
+
+![image](https://github.com/Soonbum/ObjectIRX_ManagedDotNetGuide/assets/16474083/4716bc32-9fa2-4e16-af0e-6980c3be6d6f)
+
+```cs
+public partial class ServerForm : DevExpress.XtraEditors.XtraForm
+{
+    private TcpListener listener;
+    private Thread listenerThread;
+    private bool isRunning;
+
+    public ServerForm()
+    {
+        InitializeComponent();
+
+        // 서버 IP 주소를 가져옴
+        string serverIP = System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName()).FirstOrDefault(ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork).ToString();
+        textEdit_serverIP.Text = serverIP;
+    }
+
+    private void button_selectFilePath_Click(object sender, EventArgs e)
+    {
+        // 저장 경로 지정 버튼 클릭시 저장 경로 지정 다이얼로그를 띄움
+        FolderBrowserDialog folderBrowserDialog = new FolderBrowserDialog();
+        folderBrowserDialog.Description = "저장 경로 지정";
+
+        if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
+        {
+            // 선택한 경로를 textEdit_savePath에 표시
+            textEdit_savePath.Text = folderBrowserDialog.SelectedPath;
+        }
+    }
+
+    private void checkButton_receiveFiles_CheckedChanged(object sender, EventArgs e)
+    {
+        // 저장 경로가 지정되어 있지 않거나 유효한 경로가 아니면 경고 메시지 출력하고 체크 해제
+        if (string.IsNullOrEmpty(textEdit_savePath.Text) || !System.IO.Directory.Exists(textEdit_savePath.Text))
+        {
+            checkButton_receiveFiles.Checked = false;
+            checkButton_receiveFiles.Text = "파일 수신 (중지)";
+        }
+        else
+        {
+            IPAddress ipAddr = IPAddress.Parse(textEdit_serverIP.Text);
+            int port = Convert.ToInt32(textEdit_serverPort.Text);
+
+            if (checkButton_receiveFiles.Checked)
+            {
+                checkButton_receiveFiles.Text = "파일 수신 (대기중)";
+                button_selectFilePath.Enabled = false;
+
+                if (!isRunning)
+                {
+                    listener = new TcpListener(ipAddr, port);
+                    listener.Start();
+                    isRunning = true;
+                    listenerThread = new Thread(new ThreadStart(ListenForClients));
+                    listenerThread.Start();
+                }
+            }
+            else
+            {
+                checkButton_receiveFiles.Text = "파일 수신 (중지)";
+                button_selectFilePath.Enabled = true;
+
+                listener.Stop();
+                isRunning = false;
+            }
+        }
+    }
+
+    private void ListenForClients()
+    {
+        while (isRunning)
+        {
+            try
+            {
+                var client = listener.AcceptTcpClient();
+                var clientThread = new Thread(new ParameterizedThreadStart(HandleClientComm));
+                clientThread.Start(client);
+            }
+            catch (Exception ex)
+            {
+                // Handle exception
+            }
+        }
+    }
+
+    private void HandleClientComm(object clientObj)
+    {
+        TcpClient client = (TcpClient)clientObj;
+        NetworkStream clientStream = client.GetStream();
+        byte[] buffer = new byte[1024];
+        int bytesRead;
+        long totalBytesReceived;
+
+        // 프로젝트 이름 길이 수신
+        bytesRead = clientStream.Read(buffer, 0, 4);
+        int projectNameLength = BitConverter.ToInt32(buffer, 0);
+
+        // 프로젝트 이름 수신
+        bytesRead = clientStream.Read(buffer, 0, projectNameLength);
+        string projectName = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+
+        // 저장 디렉토리 생성
+        string projectPath = Path.Combine(textEdit_savePath.Text, projectName);
+        Directory.CreateDirectory(projectPath);
+
+        // 파일 개수 수신
+        bytesRead = clientStream.Read(buffer, 0, 4);
+        int fileCount = BitConverter.ToInt32(buffer, 0);
+
+        // Read files
+        for (int i = 0; i < fileCount; i++)
+        {
+            bytesRead = clientStream.Read(buffer, 0, 4);                        // 파일명 길이 수신
+            if (bytesRead == 0) break;
+            int fileNameLength = BitConverter.ToInt32(buffer, 0);
+            bytesRead = clientStream.Read(buffer, 0, fileNameLength);           // 파일명 수신
+            if (bytesRead == 0) break;
+            string filePath = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+
+            string fileName = Path.GetFileName(filePath);
+            string savePath = Path.Combine(projectPath, fileName);
+
+            bytesRead = clientStream.Read(buffer, 0, 8);
+            long fileLength = BitConverter.ToInt64(buffer, 0);                  // 파일 크기 수신
+
+            using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write))
+            {
+                totalBytesReceived = 0;
+
+                do
+                {
+                    if (totalBytesReceived <= fileLength - buffer.Length)
+                        bytesRead = clientStream.Read(buffer, 0, buffer.Length);
+                    else
+                        bytesRead = clientStream.Read(buffer, 0, (int)(fileLength - totalBytesReceived));
+
+                    totalBytesReceived += bytesRead;
+
+                    if (bytesRead > 0)
+                        fs.Write(buffer, 0, bytesRead);
+
+                } while (bytesRead > 0);
+            }
+
+            GC.Collect();
+        }
+
+        client.Close();
     }
 }
 ```
