@@ -590,13 +590,25 @@ private async void ImageSaveButton_Click(object sender, EventArgs e)
 
                     acLyrTblRec.IsOff = false;  // 레이어 켜기
 
+                    // 만약 acLyrTblRec.Name 안에 파일 이름으로 쓸 수 없는 문자가 있으면 _로 대체
+                    string invalidChars = new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars());
+                    string invalidRegex = string.Format("[{0}]", Regex.Escape(invalidChars));
+                    string safeName = Regex.Replace(acLyrTblRec.Name, invalidRegex, "_");
+
                     // 파일명은 "TestPrint - 레이어명.png"로 저장 (TestPrint는 기본값)
-                    string newOutputFilePath = outputFilePath.Replace(".png", " - " + acLyrTblRec.Name + ".png");
+                    string newOutputFilePath = outputFilePath.Replace(".png", " - " + safeName + ".png");
 
                     // 진행바 표시하기
                     progressBarControl.Properties.Step = 1;
                     progressBarControl.Properties.Maximum = layerList.Count();
-                    await Task.Run((() => progressBarControl.PerformStep()));
+                    await Task.Run(() =>
+                    {
+                        lock (progressBarControl)
+                        {
+                            progressBarControl.PerformStep();
+                        }
+                    });
+
 
                     // 레이어별 플롯
                     try
