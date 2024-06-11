@@ -1825,3 +1825,5 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
         acTrans.Commit();
     }
     ```
+
+<!-- Work With Selection Sets -->
