@@ -1826,4 +1826,254 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
+* 선택(Selection)하기
+  - PickFirst 선택 세트 가져오기
+    ```cs
+    // Get the current document
+    Editor acDocEd = Application.DocumentManager.MdiActiveDocument.Editor;
+
+    // Get the PickFirst selection set
+    PromptSelectionResult acSSPrompt;
+    acSSPrompt = acDocEd.SelectImplied();
+
+    SelectionSet acSSet;
+
+    // If the prompt status is OK, objects were selected before the command was started
+    if (acSSPrompt.Status == PromptStatus.OK)
+    {
+        acSSet = acSSPrompt.Value;
+
+        Application.ShowAlertDialog("Number of objects in Pickfirst selection: " + acSSet.Count.ToString());
+    }
+    else
+    {
+        Application.ShowAlertDialog("Number of objects in Pickfirst selection: 0");
+    }
+
+    // Clear the PickFirst selection set
+    ObjectId[] idarrayEmpty = new ObjectId[0];
+    acDocEd.SetImpliedSelection(idarrayEmpty);
+
+    // Request for objects to be selected in the drawing area
+    acSSPrompt = acDocEd.GetSelection();
+
+    // If the prompt status is OK, objects were selected
+    if (acSSPrompt.Status == PromptStatus.OK)
+    {
+        acSSet = acSSPrompt.Value;
+
+        Application.ShowAlertDialog("Number of objects selected: " + acSSet.Count.ToString());
+    }
+    else
+    {
+        Application.ShowAlertDialog("Number of objects selected: 0");
+    }
+    ```
+  - 도면 영역 내 오브젝트 선택하기
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Request for objects to be selected in the drawing area
+        PromptSelectionResult acSSPrompt = acDoc.Editor.GetSelection();
+
+        // If the prompt status is OK, objects were selected
+        if (acSSPrompt.Status == PromptStatus.OK)
+        {
+            SelectionSet acSSet = acSSPrompt.Value;
+
+            // Step through the objects in the selection set
+            foreach (SelectedObject acSSObj in acSSet)
+            {
+                // Check to make sure a valid SelectedObject object was returned
+                if (acSSObj != null)
+                {
+                    // Open the selected object for write
+                    Entity acEnt = acTrans.GetObject(acSSObj.ObjectId,
+                                                        OpenMode.ForWrite) as Entity;
+
+                    if (acEnt != null)
+                    {
+                        // Change the object's color to Green
+                        acEnt.ColorIndex = 3;
+                    }
+                }
+            }
+
+            // Save the new object to the database
+            acTrans.Commit();
+        }
+
+        // Dispose of the transaction
+    }
+    ```
+  - 선택 세트 키워드
+    ```cs
+    private static void SelectionKeywordInputHandler(object sender, SelectionTextInputEventArgs eSelectionInput)
+    {
+        // Gets the current document editor and define other variables for the current scope
+        Editor acDocEd = Application.DocumentManager.MdiActiveDocument.Editor;
+        PromptSelectionResult acSSPrompt = null;
+        SelectionSet acSSet = null;
+        ObjectId[] acObjIds = null;
+
+        // See if the user choose the myFence keyword
+        switch (eSelectionInput.Input)
+        {
+            case "myFence":
+                // Uses the four points to define a fence selection
+                Point3dCollection ptsFence = new Point3dCollection();
+                ptsFence.Add(new Point3d(5.0, 5.0, 0.0));
+                ptsFence.Add(new Point3d(13.0, 15.0, 0.0));
+                ptsFence.Add(new Point3d(12.0, 9.0, 0.0));
+                ptsFence.Add(new Point3d(5.0, 5.0, 0.0));
+
+                acSSPrompt = acDocEd.SelectFence(ptsFence);
+                break;
+            case "myWindow":
+                // Defines a rectangular window selection
+                acSSPrompt = acDocEd.SelectWindow(new Point3d(1.0, 1.0, 0.0), new Point3d(30.0, 20.0, 0.0));
+                break;
+            case "myWPoly":
+                // Uses the four points to define a polygon window selection
+                Point3dCollection ptsPolygon = new Point3dCollection();
+                ptsPolygon.Add(new Point3d(5.0, 5.0, 0.0));
+                ptsPolygon.Add(new Point3d(13.0, 15.0, 0.0));
+                ptsPolygon.Add(new Point3d(12.0, 9.0, 0.0));
+                ptsPolygon.Add(new Point3d(5.0, 5.0, 0.0));
+
+                acSSPrompt = acDocEd.SelectWindowPolygon(ptsPolygon);
+                break;
+            case "myLastSel":
+                // Gets the last object created
+                acSSPrompt = acDocEd.SelectLast();
+                break;
+            case "myPrevSel":
+                // Gets the previous object selection set
+                acSSPrompt = acDocEd.SelectPrevious();
+                break;
+        }
+
+        // If the prompt status is OK, objects were selected and return
+        if (acSSPrompt != null)
+        {
+            if (acSSPrompt.Status == PromptStatus.OK)
+            {
+                // Objects were selected, so add them to the current selection
+                acSSet = acSSPrompt.Value;
+                acObjIds = acSSet.GetObjectIds();
+                eSelectionInput.AddObjects(acObjIds);
+            }
+        }
+    }
+
+    [CommandMethod("SelectionKeywordInput")]
+    public static void SelectionKeywordInput()
+    {
+        // Gets the current document editor
+        Editor acDocEd = Application.DocumentManager.MdiActiveDocument.Editor;
+
+        // Setups the keyword options
+        PromptSelectionOptions acKeywordOpts = new PromptSelectionOptions();
+        acKeywordOpts.Keywords.Add("myFence");
+        acKeywordOpts.Keywords.Add("myWindow");
+        acKeywordOpts.Keywords.Add("myWPoly");
+        acKeywordOpts.Keywords.Add("myLastSel");
+        acKeywordOpts.Keywords.Add("myPrevSel");
+
+        // Adds the event handler for keyword input
+        acKeywordOpts.KeywordInput += new SelectionTextInputEventHandler(SelectionKeywordInputHandler);
+
+        // Prompts the user for a selection set
+        PromptSelectionResult acSSPrompt = acDocEd.GetSelection(acKeywordOpts);
+
+        // If the prompt status is OK, objects were selected
+        if (acSSPrompt.Status == PromptStatus.OK)
+        {
+            // Gets the selection set
+            SelectionSet acSSet = acSSPrompt.Value;
+
+            // Gets the objects from the selection set
+            ObjectId[] acObjIds = acSSet.GetObjectIds();
+            Database acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+            // Starts a transaction
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+                try
+                {
+                    // Gets information about each object
+                    foreach (ObjectId acObjId in acObjIds)
+                    {
+                        Entity acEnt = (Entity)acTrans.GetObject(acObjId, OpenMode.ForWrite, true);
+                        acDocEd.WriteMessage("\nObject selected: " + acEnt.GetType().FullName);
+
+                    }
+                }
+                finally
+                {
+                    acTrans.Dispose();
+                }
+            }
+        }
+
+        // Removes the event handler for keyword input
+        acKeywordOpts.KeywordInput -= new SelectionTextInputEventHandler(SelectionKeywordInputHandler);
+    }
+    ```
+  - 다중 선택 세트
+    ```cs
+    // Get the current document editor
+    Editor acDocEd = Application.DocumentManager.MdiActiveDocument.Editor;
+
+    // Request for objects to be selected in the drawing area
+    PromptSelectionResult acSSPrompt;
+    acSSPrompt = acDocEd.GetSelection();
+
+    SelectionSet acSSet1;
+    ObjectIdCollection acObjIdColl = new ObjectIdCollection();
+
+    // If the prompt status is OK, objects were selected
+    if (acSSPrompt.Status == PromptStatus.OK)
+    {
+        // Get the selected objects
+        acSSet1 = acSSPrompt.Value;
+
+        // Append the selected objects to the ObjectIdCollection
+        acObjIdColl = new ObjectIdCollection(acSSet1.GetObjectIds());
+    }
+
+    // Request for objects to be selected in the drawing area
+    acSSPrompt = acDocEd.GetSelection();
+
+    SelectionSet acSSet2;
+
+    // If the prompt status is OK, objects were selected
+    if (acSSPrompt.Status == PromptStatus.OK)
+    {
+        acSSet2 = acSSPrompt.Value;
+
+        // Check the size of the ObjectIdCollection, if zero, then initialize it
+        if (acObjIdColl.Count == 0)
+        {
+            acObjIdColl = new ObjectIdCollection(acSSet2.GetObjectIds());
+        }
+        else
+        {
+            // Step through the second selection set
+            foreach (ObjectId acObjId in acSSet2.GetObjectIds())
+            {
+                // Add each object id to the ObjectIdCollection
+                acObjIdColl.Add(acObjId);
+            }
+        }
+    }
+
+    Application.ShowAlertDialog("Number of objects selected: " + acObjIdColl.Count.ToString());
+    ```
+
 <!-- Work With Selection Sets -->
