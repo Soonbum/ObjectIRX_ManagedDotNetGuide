@@ -2306,3 +2306,6 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
+* 오브젝트 편집하기
+
+* 프로퍼티 (레이어, 컬러, 라인타입) 조작하기
