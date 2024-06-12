@@ -2188,8 +2188,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         SelectionSet acSSet = acSSPrompt.Value;
 
-        Application.ShowAlertDialog("Number of objects selected: " +
-                                    acSSet.Count.ToString());
+        Application.ShowAlertDialog("Number of objects selected: " + acSSet.Count.ToString());
     }
     else
     {
@@ -2229,8 +2228,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         SelectionSet acSSet = acSSPrompt.Value;
 
-        Application.ShowAlertDialog("Number of objects selected: " +
-                                    acSSet.Count.ToString());
+        Application.ShowAlertDialog("Number of objects selected: " + acSSet.Count.ToString());
     }
     else
     {
@@ -2271,8 +2269,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         SelectionSet acSSet = acSSPrompt.Value;
 
-        Application.ShowAlertDialog("Number of objects selected: " +
-                                    acSSet.Count.ToString());
+        Application.ShowAlertDialog("Number of objects selected: " + acSSet.Count.ToString());
     }
     else
     {
@@ -2287,8 +2284,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     // Create a TypedValue array to define the filter criteria
     TypedValue[] acTypValAr = new TypedValue[2];
     acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "Circle"), 0);
-    acTypValAr.SetValue(new TypedValue((int)DxfCode.ExtendedDataRegAppName, 
-                                        "MY_APP"), 1);
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.ExtendedDataRegAppName, "MY_APP"), 1);
 
     // Assign the filter criteria to a SelectionFilter object
     SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
@@ -2302,8 +2298,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         SelectionSet acSSet = acSSPrompt.Value;
 
-        Application.ShowAlertDialog("Number of objects selected: " +
-                                    acSSet.Count.ToString());
+        Application.ShowAlertDialog("Number of objects selected: " + acSSet.Count.ToString());
     }
     else
     {
