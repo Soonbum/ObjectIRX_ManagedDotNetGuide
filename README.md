@@ -2307,5 +2307,786 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     ```
 
 * 오브젝트 편집하기
+  - 비참조 오브젝트 제거하기
+    ```cs
+    // Purge 메서드는 ObjectIdCollection 또는 ObjectIdGraph 오브젝트 형태에서 여러 개의 오브젝트를 제거할 수 있음
+    
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Layer table for read
+        LayerTable acLyrTbl;
+        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+        // Create an ObjectIdCollection to hold the object ids for each table record
+        ObjectIdCollection acObjIdColl = new ObjectIdCollection();
+
+        // Step through each layer and add iterator to the ObjectIdCollection
+        foreach (ObjectId acObjId in acLyrTbl)
+        {
+            acObjIdColl.Add(acObjId);
+        }
+
+        // Remove the layers that are in use and return the ones that can be erased
+        acCurDb.Purge(acObjIdColl);
+
+        // Step through the returned ObjectIdCollection
+        // and erase each unreferenced layer
+        foreach (ObjectId acObjId in acObjIdColl)
+        {
+            SymbolTableRecord acSymTblRec;
+            acSymTblRec = acTrans.GetObject(acObjId, OpenMode.ForWrite) as SymbolTableRecord;
+
+            try
+            {
+                // Erase the unreferenced layer
+                acSymTblRec.Erase(true);
+            }
+            catch (Autodesk.AutoCAD.Runtime.Exception Ex)
+            {
+                // Layer could not be deleted
+                Application.ShowAlertDialog("Error:\n" + Ex.Message);
+            }
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
+    ```
+  - 오브젝트 이름 변경하기
+    ```cs
+    // 오브젝트 이름은 최대 255 글자까지 가능함
+    // 다음의 특수 문자는 오브젝트 이름에 사용할 수 없음: < > / \ " : ; ? , * | = ' 그리고 Unicode 글꼴로 생성된 특수 문자
+
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Returns the layer table for the current database
+        LayerTable acLyrTbl;
+        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId,
+                                        OpenMode.ForWrite) as LayerTable;
+
+        // Clone layer 0 (copy it and its properties) as a new layer
+        LayerTableRecord acLyrTblRec;
+        acLyrTblRec = acTrans.GetObject(acLyrTbl["0"],
+                                        OpenMode.ForRead).Clone() as LayerTableRecord;
+
+        // Change the name of the cloned layer
+        acLyrTblRec.Name = "MyLayer";
+
+        // Add the cloned layer to the Layer table and transaction
+        acLyrTbl.Add(acLyrTblRec);
+        acTrans.AddNewlyCreatedDBObject(acLyrTblRec, true);
+
+        // Save changes and dispose of the transaction
+        acTrans.Commit();
+    }
+    ```
+  - 오브젝트 삭제하기
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                        OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                        OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a lightweight polyline
+        using (Polyline acPoly = new Polyline())
+        {
+            acPoly.AddVertexAt(0, new Point2d(2, 4), 0, 0, 0);
+            acPoly.AddVertexAt(1, new Point2d(4, 2), 0, 0, 0);
+            acPoly.AddVertexAt(2, new Point2d(6, 4), 0, 0, 0);
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acPoly);
+            acTrans.AddNewlyCreatedDBObject(acPoly, true);
+
+            // Update the display and display an alert message
+            acDoc.Editor.Regen();
+            Application.ShowAlertDialog("Erase the newly added polyline.");
+
+            // Erase the polyline from the drawing
+            acPoly.Erase(true);
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+    }
+    ```
+  - 단일 오브젝트 복사하기
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                        OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                        OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a circle that is at 2,3 with a radius of 4.25
+        using (Circle acCirc = new Circle())
+        {
+            acCirc.Center = new Point3d(2, 3, 0);
+            acCirc.Radius = 4.25;
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acCirc);
+            acTrans.AddNewlyCreatedDBObject(acCirc, true);
+
+            // Create a copy of the circle and change its radius
+            Circle acCircClone = acCirc.Clone() as Circle;
+            acCircClone.Radius = 1;
+
+            // Add the cloned circle
+            acBlkTblRec.AppendEntity(acCircClone);
+            acTrans.AddNewlyCreatedDBObject(acCircClone, true);
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+    }
+    ```
+  - 여러 오브젝트 복사하기
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                        OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                        OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a circle that is at (0,0,0) with a radius of 5
+        using (Circle acCirc1 = new Circle())
+        {
+            acCirc1.Center = new Point3d(0, 0, 0);
+            acCirc1.Radius = 5;
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acCirc1);
+            acTrans.AddNewlyCreatedDBObject(acCirc1, true);
+
+            // Create a circle that is at (0,0,0) with a radius of 7
+            using (Circle acCirc2 = new Circle())
+            {
+                acCirc2.Center = new Point3d(0, 0, 0);
+                acCirc2.Radius = 7;
+
+                // Add the new object to the block table record and the transaction
+                acBlkTblRec.AppendEntity(acCirc2);
+                acTrans.AddNewlyCreatedDBObject(acCirc2, true);
+
+                // Add all the objects to clone
+                DBObjectCollection acDBObjColl = new DBObjectCollection();
+                acDBObjColl.Add(acCirc1);
+                acDBObjColl.Add(acCirc2);
+
+                foreach (Entity acEnt in acDBObjColl)
+                {
+                    Entity acEntClone;
+                    acEntClone = acEnt.Clone() as Entity;
+                    acEntClone.ColorIndex = 1;
+
+                    // Create a matrix and move each copied entity 15 units
+                    acEntClone.TransformBy(Matrix3d.Displacement(new Vector3d(15, 0, 0)));
+
+                    // Add the cloned object
+                    acBlkTblRec.AppendEntity(acEntClone);
+                    acTrans.AddNewlyCreatedDBObject(acEntClone, true);
+                }
+            }
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+    }
+    ```
+  - 데이터베이스 간 오브젝트 복사하기
+    ```cs
+    // WblockCloneObjects 메서드는 다음 파라미터를 요구함
+    //   ObjectIdCollection - 복사하고자 하는 오브젝트 리스트
+    //   ObjectId - 복사하고자 하는 오브젝트들에 대한 새로운 부모 오브젝트의 ObjectId
+    //   IdMapping - 복사할 오브젝트들에 대한 현재/새로운 ObjectId들의 데이터 구조
+    //   DuplicateRecordCloning - 중복 오브젝트를 어떻게 처리해야 할지 결정함
+    //   Defer Translation - object id 변환 여부를 제어함
+    
+    [CommandMethod("CopyObjectsBetweenDatabases", CommandFlags.Session)]
+    public static void CopyObjectsBetweenDatabases()
+    {
+        ObjectIdCollection acObjIdColl = new ObjectIdCollection();
+
+        // Get the current document and database
+        Document acDoc = Application.DocumentManager.MdiActiveDocument;
+        Database acCurDb = acDoc.Database;
+
+        // Lock the current document
+        using (DocumentLock acLckDocCur = acDoc.LockDocument())
+        {
+            // Start a transaction
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+                // Open the Block table record for read
+                BlockTable acBlkTbl;
+                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+                // Open the Block table record Model space for write
+                BlockTableRecord acBlkTblRec;
+                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+                // Create a circle that is at (0,0,0) with a radius of 5
+                using (Circle acCirc1 = new Circle())
+                {
+                    acCirc1.Center = new Point3d(0, 0, 0);
+                    acCirc1.Radius = 5;
+
+                    // Add the new object to the block table record and the transaction
+                    acBlkTblRec.AppendEntity(acCirc1);
+                    acTrans.AddNewlyCreatedDBObject(acCirc1, true);
+
+                    // Create a circle that is at (0,0,0) with a radius of 7
+                    using (Circle acCirc2 = new Circle())
+                    {
+                        acCirc2.Center = new Point3d(0, 0, 0);
+                        acCirc2.Radius = 7;
+
+                        // Add the new object to the block table record and the transaction
+                        acBlkTblRec.AppendEntity(acCirc2);
+                        acTrans.AddNewlyCreatedDBObject(acCirc2, true);
+
+                        // Add all the objects to copy to the new document
+                        acObjIdColl = new ObjectIdCollection();
+                        acObjIdColl.Add(acCirc1.ObjectId);
+                        acObjIdColl.Add(acCirc2.ObjectId);
+                    }
+                }
+
+                // Save the new objects to the database
+                acTrans.Commit();
+            }
+
+            // Unlock the document
+        }
+
+        // Change the file and path to match a drawing template on your workstation
+        string sLocalRoot = Application.GetSystemVariable("LOCALROOTPREFIX") as string;
+        string sTemplatePath = sLocalRoot + "Template\\acad.dwt";
+
+        // Create a new drawing to copy the objects to
+        DocumentCollection acDocMgr = Application.DocumentManager;
+        Document acNewDoc = acDocMgr.Add(sTemplatePath);
+        Database acDbNewDoc = acNewDoc.Database;
+
+        // Lock the new document
+        using (DocumentLock acLckDoc = acNewDoc.LockDocument())
+        {
+            // Start a transaction in the new database
+            using (Transaction acTrans = acDbNewDoc.TransactionManager.StartTransaction())
+            {
+                // Open the Block table for read
+                BlockTable acBlkTblNewDoc;
+                acBlkTblNewDoc = acTrans.GetObject(acDbNewDoc.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+                // Open the Block table record Model space for read
+                BlockTableRecord acBlkTblRecNewDoc;
+                acBlkTblRecNewDoc = acTrans.GetObject(acBlkTblNewDoc[BlockTableRecord.ModelSpace], OpenMode.ForRead) as BlockTableRecord;
+
+                // Clone the objects to the new database
+                IdMapping acIdMap = new IdMapping();
+                acCurDb.WblockCloneObjects(acObjIdColl, acBlkTblRecNewDoc.ObjectId, acIdMap, DuplicateRecordCloning.Ignore, false);
+
+                // Save the copied objects to the database
+                acTrans.Commit();
+            }
+
+            // Unlock the document
+        }
+
+        // Set the new document current
+        acDocMgr.MdiActiveDocument = acNewDoc;
+    }
+    ```
+  - 오브젝트 오프셋 생성하기
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                        OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                        OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a lightweight polyline
+        using (Polyline acPoly = new Polyline())
+        {
+            acPoly.AddVertexAt(0, new Point2d(1, 1), 0, 0, 0);
+            acPoly.AddVertexAt(1, new Point2d(1, 2), 0, 0, 0);
+            acPoly.AddVertexAt(2, new Point2d(2, 2), 0, 0, 0);
+            acPoly.AddVertexAt(3, new Point2d(3, 2), 0, 0, 0);
+            acPoly.AddVertexAt(4, new Point2d(4, 4), 0, 0, 0);
+            acPoly.AddVertexAt(5, new Point2d(4, 1), 0, 0, 0);
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acPoly);
+            acTrans.AddNewlyCreatedDBObject(acPoly, true);
+
+            // Offset the polyline a given distance
+            DBObjectCollection acDbObjColl = acPoly.GetOffsetCurves(0.25);
+
+            // Step through the new objects created
+            foreach (Entity acEnt in acDbObjColl)
+            {
+                // Add each offset object
+                acBlkTblRec.AppendEntity(acEnt);
+                acTrans.AddNewlyCreatedDBObject(acEnt, true);
+            }
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+    }
+    ```
+  - 행렬을 이용하여 오브젝트 변환하기
+    * 4x4 변환 행렬인 Matrix3d 오브젝트와 TransformBy 메서드를 이용해 오브젝트를 이동, 회전, 미러링, 스케일링할 수 있다.
+    * GetTransformedCopy 메서드를 이용해 엔티티 복사본을 만들고 복사본에게 변환 행렬을 적용할 수 있다.
+    * 변환 행렬은 다음과 같다. (R = Rotation, T = Translation)
+      R00 | R01 | R02 | T0
+      R10 | R11 | R12 | T1
+      R20 | R21 | R22 | T2
+      0   | 0   | 0   | 1
+    * 다음 변환 행렬은 점 (0, 0, 0)을 중심으로 90도 회전시키는 변환 행렬이다.
+      0.0 | -1.0 | 0.0 | 0.0
+      1.0 | 0.0  | 0.0 | 0.0
+      0.0 | 0.0  | 1.0 | 0.0
+      0.0 | 0.0  | 0.0 | 1.0
+      - 이와 같은 변환 행렬을 만드는 방법은 2가지가 있다.
+        ```cs
+        double[] dMatrix = new double[16];
+
+        dMatrix[0] = 0.0;
+        dMatrix[1] = -1.0;
+        dMatrix[2] = 0.0;
+        dMatrix[3] = 0.0;
+        dMatrix[4] = 1.0;
+        dMatrix[5] = 0.0;
+        dMatrix[6] = 0.0;
+        dMatrix[7] = 0.0;
+        dMatrix[8] = 0.0;
+        dMatrix[9] = 0.0;
+        dMatrix[10] = 1.0;
+        dMatrix[11] = 0.0;
+        dMatrix[12] = 0.0;
+        dMatrix[13] = 0.0;
+        dMatrix[14] = 0.0;
+        dMatrix[15] = 1.0;
+ 
+        Matrix3d acMat3d = new Matrix3d(dMatrix);
+        ```
+        ```cs
+        Matrix3d acMat3d = new Matrix3d();
+ 
+        acMat3d = Matrix3d.Rotation(Math.PI / 2, curUCS.Zaxis, new Point3d(0, 0, 0));
+        ```
+    * 다음은 변환 행렬의 몇 가지 예제이다.
+      - Rotation Matrix: 45 degrees about point (5, 5, 0)
+        0.707107 | -0.707107 | 0.0 | 5.0
+        0.707107 | 0.707107  | 0.0 | -2.071068
+        0.0      | 0.0       | 1.0 | 0.0
+        0.0      | 0.0       | 0.0 | 1.0
+      - Translation Matrix: move an entity by (10, 10, 0)
+        1.0 | 0.0 | 0.0 | 10.0
+        0.0 | 1.0 | 0.0 | 10.0
+        0.0 | 0.0 | 1.0 | 0.0
+        0.0 | 0.0 | 0.0 | 1.0
+      - Scaling Matrix: scale by 10,10 at point (0, 0, 0)
+        10.0 | 0.0  | 0.0  | 0.0
+        0.0  | 10.0 | 0.0  | 0.0
+        0.0  | 0.0  | 10.0 | 0.0
+        0.0  | 0.0  | 0.0  | 1.0
+      - Scaling Matrix: scale by 10,10 at point (2, 2, 0)
+        10.0 | 0.0  | 0.0  | -18.0
+        0.0  | 10.0 | 0.0  | -18.0
+        0.0  | 0.0  | 10.0 | 0.0
+        0.0  | 0.0  | 0.0  | 1.0
+  - 오브젝트 이동하기
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                        OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                        OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a circle that is at 2,2 with a radius of 0.5
+        using (Circle acCirc = new Circle())
+        {
+            acCirc.Center = new Point3d(2, 2, 0);
+            acCirc.Radius = 0.5;
+
+            // Create a matrix and move the circle using a vector from (0,0,0) to (2,0,0)
+            Point3d acPt3d = new Point3d(0, 0, 0);
+            Vector3d acVec3d = acPt3d.GetVectorTo(new Point3d(2, 0, 0));
+
+            acCirc.TransformBy(Matrix3d.Displacement(acVec3d));
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acCirc);
+            acTrans.AddNewlyCreatedDBObject(acCirc, true);
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+    }
+    ```
+  - 오브젝트 회전하기
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                     OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                        OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a lightweight polyline
+        using (Polyline acPoly = new Polyline())
+        {
+            acPoly.AddVertexAt(0, new Point2d(1, 2), 0, 0, 0);
+            acPoly.AddVertexAt(1, new Point2d(1, 3), 0, 0, 0);
+            acPoly.AddVertexAt(2, new Point2d(2, 3), 0, 0, 0);
+            acPoly.AddVertexAt(3, new Point2d(3, 3), 0, 0, 0);
+            acPoly.AddVertexAt(4, new Point2d(4, 4), 0, 0, 0);
+            acPoly.AddVertexAt(5, new Point2d(4, 2), 0, 0, 0);
+
+            // Close the polyline
+            acPoly.Closed = true;
+
+            Matrix3d curUCSMatrix = acDoc.Editor.CurrentUserCoordinateSystem;
+            CoordinateSystem3d curUCS = curUCSMatrix.CoordinateSystem3d;
+
+            // Rotate the polyline 45 degrees, around the Z-axis of the current UCS
+            // using a base point of (4,4.25,0)
+            acPoly.TransformBy(Matrix3d.Rotation(0.7854,
+                                                 curUCS.Zaxis,
+                                                 new Point3d(4, 4.25, 0)));
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acPoly);
+            acTrans.AddNewlyCreatedDBObject(acPoly, true);
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+    }
+    ```
+  - 오브젝트 미러링
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                        OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                        OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a lightweight polyline
+        using (Polyline acPoly = new Polyline())
+        {
+            acPoly.AddVertexAt(0, new Point2d(1, 1), 0, 0, 0);
+            acPoly.AddVertexAt(1, new Point2d(1, 2), 0, 0, 0);
+            acPoly.AddVertexAt(2, new Point2d(2, 2), 0, 0, 0);
+            acPoly.AddVertexAt(3, new Point2d(3, 2), 0, 0, 0);
+            acPoly.AddVertexAt(4, new Point2d(4, 4), 0, 0, 0);
+            acPoly.AddVertexAt(5, new Point2d(4, 1), 0, 0, 0);
+
+            // Create a bulge of -2 at vertex 1
+            acPoly.SetBulgeAt(1, -2);
+
+            // Close the polyline
+            acPoly.Closed = true;
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acPoly);
+            acTrans.AddNewlyCreatedDBObject(acPoly, true);
+
+            // Create a copy of the original polyline
+            Polyline acPolyMirCopy = acPoly.Clone() as Polyline;
+            acPolyMirCopy.ColorIndex = 5;
+
+            // Define the mirror line
+            Point3d acPtFrom = new Point3d(0, 4.25, 0);
+            Point3d acPtTo = new Point3d(4, 4.25, 0);
+            Line3d acLine3d = new Line3d(acPtFrom, acPtTo);
+
+            // Mirror the polyline across the X axis
+            acPolyMirCopy.TransformBy(Matrix3d.Mirroring(acLine3d));
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acPolyMirCopy);
+            acTrans.AddNewlyCreatedDBObject(acPolyMirCopy, true);
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+    }
+    ```
+  - 오브젝트 스케일링
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                     OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                        OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a lightweight polyline
+        using (Polyline acPoly = new Polyline())
+        {
+            acPoly.AddVertexAt(0, new Point2d(1, 2), 0, 0, 0);
+            acPoly.AddVertexAt(1, new Point2d(1, 3), 0, 0, 0);
+            acPoly.AddVertexAt(2, new Point2d(2, 3), 0, 0, 0);
+            acPoly.AddVertexAt(3, new Point2d(3, 3), 0, 0, 0);
+            acPoly.AddVertexAt(4, new Point2d(4, 4), 0, 0, 0);
+            acPoly.AddVertexAt(5, new Point2d(4, 2), 0, 0, 0);
+
+            // Close the polyline
+            acPoly.Closed = true;
+
+            // Reduce the object by a factor of 0.5 
+            // using a base point of (4,4.25,0)
+            acPoly.TransformBy(Matrix3d.Scaling(0.5, new Point3d(4, 4.25, 0)));
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acPoly);
+            acTrans.AddNewlyCreatedDBObject(acPoly, true);
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+    }
+    ```
+  - 오브젝트 연장 (Extend) 및 자르기 (Trim)
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                        OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                        OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a line that starts at (4,4,0) and ends at (7,7,0)
+        using (Line acLine = new Line(new Point3d(4, 4, 0),
+                                new Point3d(7, 7, 0)))
+        {
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acLine);
+            acTrans.AddNewlyCreatedDBObject(acLine, true);
+
+            // Update the display and diaplay a message box
+            acDoc.Editor.Regen();
+            Application.ShowAlertDialog("Before extend");
+
+            // Double the length of the line
+            acLine.EndPoint = acLine.EndPoint + acLine.Delta;
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+    }
+    ```
+  - 오브젝트 분해하기 (Explode)
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                        OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                        OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a lightweight polyline
+        using (Polyline acPoly = new Polyline())
+        {
+            acPoly.AddVertexAt(0, new Point2d(1, 1), 0, 0, 0);
+            acPoly.AddVertexAt(1, new Point2d(1, 2), 0, 0, 0);
+            acPoly.AddVertexAt(2, new Point2d(2, 2), 0, 0, 0);
+            acPoly.AddVertexAt(3, new Point2d(3, 2), 0, 0, 0);
+            acPoly.AddVertexAt(4, new Point2d(4, 4), 0, 0, 0);
+            acPoly.AddVertexAt(5, new Point2d(4, 1), 0, 0, 0);
+
+            // Sets the bulge at index 3
+            acPoly.SetBulgeAt(3, -0.5);
+
+            // Explodes the polyline
+            DBObjectCollection acDBObjColl = new DBObjectCollection();
+            acPoly.Explode(acDBObjColl);
+
+            foreach (Entity acEnt in acDBObjColl)
+            {
+                // Add the new object to the block table record and the transaction
+                acBlkTblRec.AppendEntity(acEnt);
+                acTrans.AddNewlyCreatedDBObject(acEnt, true);
+            }
+
+            // Dispose of the in memory polyline
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+    }
+    ```
+  - 폴리라인 편집하기
+    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                        OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                        OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a lightweight polyline
+        using (Polyline acPoly = new Polyline())
+        {
+            acPoly.AddVertexAt(0, new Point2d(1, 1), 0, 0, 0);
+            acPoly.AddVertexAt(1, new Point2d(1, 2), 0, 0, 0);
+            acPoly.AddVertexAt(2, new Point2d(2, 2), 0, 0, 0);
+            acPoly.AddVertexAt(3, new Point2d(3, 2), 0, 0, 0);
+            acPoly.AddVertexAt(4, new Point2d(4, 4), 0, 0, 0);
+
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acPoly);
+            acTrans.AddNewlyCreatedDBObject(acPoly, true);
+
+            // Sets the bulge at index 3
+            acPoly.SetBulgeAt(3, -0.5);
+
+            // Add a new vertex
+            acPoly.AddVertexAt(5, new Point2d(4, 1), 0, 0, 0);
+
+            // Sets the start and end width at index 4
+            acPoly.SetStartWidthAt(4, 0.1);
+            acPoly.SetEndWidthAt(4, 0.5);
+
+            // Close the polyline
+            acPoly.Closed = true;
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+    }
+    ```
 
 * 프로퍼티 (레이어, 컬러, 라인타입) 조작하기
