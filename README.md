@@ -1829,6 +1829,11 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 * 선택(Selection)하기
   - PickFirst 선택 세트 가져오기
     ```cs
+    // 주의사항
+    // 1. PICKFIRST 시스템 변수가 1이어야 함
+    // 2. 함수 위에 UsePickSet 커맨드 flag를 사용해야 함 (예: [CommandMethod("CheckForPickfirstSelection", CommandFlags.UsePickSet)])
+    // 3. PickFirst 선택 세트를 가져오기 위해 SelectImplied 메서드를 사용해야 함
+    
     // Get the current document
     Editor acDocEd = Application.DocumentManager.MdiActiveDocument.Editor;
 
@@ -1871,6 +1876,19 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     ```
   - 도면 영역 내 오브젝트 선택하기
     ```cs
+    // 선택하기 위한 함수는 다음과 같다.
+    // - GetSelection: 화면에서 오브젝트를 집으라고 사용자에게 알려줌
+    // - SelectAll: 도면 내 모든 오브젝트를 선택함
+    // - SelectCrossingPolygon: 다각형 안에 있거나 가로지르는 오브젝트를 선택함
+    // - SelectCrossingWindow: 사각형 영역 안에 있거나 가로지르는 오브젝트를 선택함
+    // - SelectFence: 선택 펜스를 가로지르는 모든 오브젝트를 선택함
+    // - SelectLast: 현재 공간에서 생성된 마지막 오브젝트를 선택함
+    // - SelectPrevious: 이전 선택 동적에 의해 선택된 모든 오브젝트를 선택함
+    // - SelectWindow: 사각형 영역 안에 있는 오브젝트를 선택함
+    // - SelectWindowPolygon: 다각형 안에 있는 오브젝트를 선택함
+    // - SelectAtPoint: 주어진 점을 통과하는 오브젝트를 선택함
+    // - SelectByPolygon: 펜스 안쪽에 있는 오브젝트를 선택함
+    
     // Get the current document and database
     Document acDoc = Application.DocumentManager.MdiActiveDocument;
     Database acCurDb = acDoc.Database;
@@ -1893,8 +1911,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
                 if (acSSObj != null)
                 {
                     // Open the selected object for write
-                    Entity acEnt = acTrans.GetObject(acSSObj.ObjectId,
-                                                        OpenMode.ForWrite) as Entity;
+                    Entity acEnt = acTrans.GetObject(acSSObj.ObjectId, OpenMode.ForWrite) as Entity;
 
                     if (acEnt != null)
                     {
@@ -2075,5 +2092,222 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 
     Application.ShowAlertDialog("Number of objects selected: " + acObjIdColl.Count.ToString());
     ```
+  - 선택 필터
+    ```cs
+    // 선택 필터는 TypedValues의 인자의 조합으로 구성한다.
+    // 1번째 인자: 필터 타입: object 등
+      // 0 (DxfCode.Start): 오브젝트 타입을 의미함. "Line", "Circle", "Arc" 등
+      // 2 (DxfCode.BlockName): 삽입 레퍼런스의 블록 이름을 의미함
+      // 8 (DxfCode.LayerName): 레이어 이름을 의미함
+      // 60 (DxfCode.Visibility): 오브젝트 가시성을 의미함 (0 = visible, 1 = invisible)
+      // 62 (DxfCode.Color): 컬러값 0 ~ 256 중 하나. (0은 BYBLOCK, 256은 BYLAYER, 음수는 레이어가 꺼져 있음을 의미함)
+      // 67: 모델/페이퍼 공간을 의미함 (0 또는 생략하면 model 공간, 1은 paper 공간)
+    // 2번째 인자: 필터링할 값: circle 등
+    
+    // Get the current document editor
+    Editor acDocEd = Application.DocumentManager.MdiActiveDocument.Editor;
 
-<!-- Work With Selection Sets -->
+    // Create a TypedValue array to define the filter criteria
+    TypedValue[] acTypValAr = new TypedValue[1];
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "CIRCLE"), 0);
+
+    // Assign the filter criteria to a SelectionFilter object
+    SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
+
+    // Request for objects to be selected in the drawing area
+    PromptSelectionResult acSSPrompt;
+    acSSPrompt = acDocEd.GetSelection(acSelFtr);
+
+    // If the prompt status is OK, objects were selected
+    if (acSSPrompt.Status == PromptStatus.OK)
+    {
+        SelectionSet acSSet = acSSPrompt.Value;
+
+        Application.ShowAlertDialog("Number of objects selected: " + acSSet.Count.ToString());
+    }
+    else
+    {
+        Application.ShowAlertDialog("Number of objects selected: 0");
+    }
+    ```
+  - 다중 선택 필터
+    ```cs
+    // Get the current document editor
+    Editor acDocEd = Application.DocumentManager.MdiActiveDocument.Editor;
+
+    // Create a TypedValue array to define the filter criteria
+    TypedValue[] acTypValAr = new TypedValue[3];
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.Color, 5), 0);
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "CIRCLE"), 1);
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.LayerName, "0"), 2);
+
+    // Assign the filter criteria to a SelectionFilter object
+    SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
+
+    // Request for objects to be selected in the drawing area
+    PromptSelectionResult acSSPrompt;
+    acSSPrompt = acDocEd.GetSelection(acSelFtr);
+
+    // If the prompt status is OK, objects were selected
+    if (acSSPrompt.Status == PromptStatus.OK)
+    {
+        SelectionSet acSSet = acSSPrompt.Value;
+
+        Application.ShowAlertDialog("Number of objects selected: " + acSSet.Count.ToString());
+    }
+    else
+    {
+        Application.ShowAlertDialog("Number of objects selected: 0");
+    }
+    ```
+  - 선택 필터 - 비교 연산, 논리 연산을 적용한 예시 1
+    ```cs
+    // TypedValue의 인자의 조합을 이용한다.
+      // 1번째 인자: DxfCode.Operator
+      // 2번째 인자
+      //   "*" (모두 허용), "=" (동일함), "!=", "/=", "<>" (동일하지 않음), "<" (미만), "<=" (이하), ">" (초과), ">=" (이상), "&" (Bitwise AND), "&=" (Bitwise masked equals)
+    
+    // Get the current document editor
+    Editor acDocEd = Application.DocumentManager.MdiActiveDocument.Editor;
+
+    // Create a TypedValue array to define the filter criteria
+    TypedValue[] acTypValAr = new TypedValue[3];
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "CIRCLE"), 0);
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.Operator, ">="), 1);
+    acTypValAr.SetValue(new TypedValue(40, 5), 2);
+
+    // Assign the filter criteria to a SelectionFilter object
+    SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
+
+    // Request for objects to be selected in the drawing area
+    PromptSelectionResult acSSPrompt;
+    acSSPrompt = acDocEd.GetSelection(acSelFtr);
+
+    // If the prompt status is OK, objects were selected
+    if (acSSPrompt.Status == PromptStatus.OK)
+    {
+        SelectionSet acSSet = acSSPrompt.Value;
+
+        Application.ShowAlertDialog("Number of objects selected: " +
+                                    acSSet.Count.ToString());
+    }
+    else
+    {
+        Application.ShowAlertDialog("Number of objects selected: 0");
+    }
+    ```
+  - 선택 필터 - 비교 연산, 논리 연산을 적용한 예시 2
+    ```cs
+    // TypedValue의 인자의 조합을 이용한다.
+      // 1번째 인자: DxfCode.Operator
+      // 2번째 인자
+      // 다음은 열고 닫는 연산자가 반드시 pair로 존재해야 한다.
+      //   "<AND" 다수의 피연산자 "AND>"
+      //   "<OR" 다수의 피연산자 "OR>"
+      //   "<XOR" 2개의 피연산자 "XOR>"
+      //   "<NOT" 1개의 피연산자 "NOT>"
+
+    // Get the current document editor
+    Editor acDocEd = Application.DocumentManager.MdiActiveDocument.Editor;
+
+    // Create a TypedValue array to define the filter criteria
+    TypedValue[] acTypValAr = new TypedValue[4];
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.Operator, "<or"), 0);
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "TEXT"), 1);
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "MTEXT"), 2);
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.Operator, "or>"), 3);
+
+    // Assign the filter criteria to a SelectionFilter object
+    SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
+
+    // Request for objects to be selected in the drawing area
+    PromptSelectionResult acSSPrompt;
+    acSSPrompt = acDocEd.GetSelection(acSelFtr);
+
+    // If the prompt status is OK, objects were selected
+    if (acSSPrompt.Status == PromptStatus.OK)
+    {
+        SelectionSet acSSet = acSSPrompt.Value;
+
+        Application.ShowAlertDialog("Number of objects selected: " +
+                                    acSSet.Count.ToString());
+    }
+    else
+    {
+        Application.ShowAlertDialog("Number of objects selected: 0");
+    }
+    ```
+  - 선택 필터 - 와일드-카드 패턴 예시
+    ```cs
+    // # (pound): 하나의 숫자와 일치함
+    // @ (at): 하나의 알파벳 문자와 일치함
+    // . (period): 하나의 (알파벳도 아니고 숫자도 아닌) 문자와 일치함
+    // * (asterisk): 모든 문자 시퀀스와 일치함 (빈 문자열도 포함됨)
+    // ? (question mark): 하나의 문자와 일치함
+    // ~ (tilde): 이것이 만약 패턴의 1번째 문자라면, 이것은 패턴을 제외한 모든 것과 일치함
+    // [...]: 괄호 안에 포함된 문자들 중 하나와 일치함
+    // [~...]: 괄호 안에 포함되지 않은 문자들 중 하나와 일치함
+    // - (hyphen): 괄호 안에서 단일 문자에 대한 범위를 지정할 때 사용함
+    // , (comma): 2개의 패턴을 분리함
+    // ` (reverse quote): 특수 문자 이스케이프 용도
+    
+    // Get the current document editor
+    Editor acDocEd = Application.DocumentManager.MdiActiveDocument.Editor;
+
+    // Create a TypedValue array to define the filter criteria
+    TypedValue[] acTypValAr = new TypedValue[2];
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "MTEXT"), 0);
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.Text, "*The*"), 1);
+
+    // Assign the filter criteria to a SelectionFilter object
+    SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
+
+    // Request for objects to be selected in the drawing area
+    PromptSelectionResult acSSPrompt;
+    acSSPrompt = acDocEd.GetSelection(acSelFtr);
+
+    // If the prompt status is OK, objects were selected
+    if (acSSPrompt.Status == PromptStatus.OK)
+    {
+        SelectionSet acSSet = acSSPrompt.Value;
+
+        Application.ShowAlertDialog("Number of objects selected: " +
+                                    acSSet.Count.ToString());
+    }
+    else
+    {
+        Application.ShowAlertDialog("Number of objects selected: 0");
+    }
+    ```
+  - 선택 필터 - 외부 애플리케이션이 추가한 데이터 필터링하기
+    ```cs
+    // Get the current document editor
+    Editor acDocEd = Application.DocumentManager.MdiActiveDocument.Editor;
+
+    // Create a TypedValue array to define the filter criteria
+    TypedValue[] acTypValAr = new TypedValue[2];
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "Circle"), 0);
+    acTypValAr.SetValue(new TypedValue((int)DxfCode.ExtendedDataRegAppName, 
+                                        "MY_APP"), 1);
+
+    // Assign the filter criteria to a SelectionFilter object
+    SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
+
+    // Request for objects to be selected in the drawing area
+    PromptSelectionResult acSSPrompt;
+    acSSPrompt = acDocEd.GetSelection(acSelFtr);
+
+    // If the prompt status is OK, objects were selected
+    if (acSSPrompt.Status == PromptStatus.OK)
+    {
+        SelectionSet acSSet = acSSPrompt.Value;
+
+        Application.ShowAlertDialog("Number of objects selected: " +
+                                    acSSet.Count.ToString());
+    }
+    else
+    {
+        Application.ShowAlertDialog("Number of objects selected: 0");
+    }
+    ```
+
