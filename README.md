@@ -1176,6 +1176,155 @@ public partial class ClientForm : DevExpress.XtraEditors.XtraForm
 }
 ```
 
+* SFTP 전송 예제 (클라이언트)
+
+![image](https://github.com/Soonbum/ObjectIRX_ManagedDotNetGuide/assets/16474083/9a17bbb6-2ebc-484b-86c0-355727c6b0d4)
+
+
+```cs
+public partial class ClientForm : DevExpress.XtraEditors.XtraForm
+{
+    bool bSendSuccess;
+
+    public ClientForm()
+    {
+        InitializeComponent();
+    }
+
+    private void fileSelectButton_Click(object sender, EventArgs e)
+    {
+        // 파일 선택 버튼 클릭 시 파일 선택 다이얼로그를 띄움
+        OpenFileDialog openFileDialog = new OpenFileDialog();
+        openFileDialog.Title = "파일 선택";
+        openFileDialog.Filter = "모든 파일(*.*)|*.*";
+        openFileDialog.Multiselect = true;
+
+        if (openFileDialog.ShowDialog() == DialogResult.OK)
+        {
+            // 선택한 모든 파일을 fileListBoxControl에 추가
+            foreach (string fileName in openFileDialog.FileNames)
+            {
+                fileListBoxControl.Items.Add(fileName);
+            }
+        }
+    }
+
+    private void fileClearButton_Click(object sender, EventArgs e)
+    {
+        // 모두 삭제 버튼 클릭 시 fileListBoxControl의 모든 항목을 삭제
+        fileListBoxControl.Items.Clear();
+    }
+
+    private async void sendButton_Click(object sender, EventArgs e)
+    {
+        bSendSuccess = false;
+        progressBarControl.Position = 0;
+
+        // 파일 보내기 버튼 클릭 시 서버IP/포트번호로 fileListBoxControl에 있는 파일들을 전송
+        if (string.IsNullOrEmpty(textEdit_serverIP.Text) || string.IsNullOrEmpty(textEdit_serverPort.Text))
+        {
+            XtraMessageBox.Show("서버 IP 주소와 포트 번호를 입력해 주세요.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        // 소켓을 열고 서버에 파일 전송
+        // 프로젝트명 문자열을 먼저 보내고 fileListBoxControl에 있는 파일들을 전송
+        try
+        {
+            try
+            {
+                using (TcpClient client = new TcpClient(textEdit_serverIP.Text, int.Parse(textEdit_serverPort.Text)))
+                using (NetworkStream clientStream = client.GetStream())
+                {
+                    // Send project name
+                    string projectName = textEdit_projectName.Text;
+                    byte[] projectNameBytes = Encoding.UTF8.GetBytes(projectName);
+                    byte[] projectNameLength = BitConverter.GetBytes(projectNameBytes.Length);
+                    clientStream.Write(projectNameLength, 0, projectNameLength.Length); // 프로젝트 이름 길이 송신
+                    clientStream.Write(projectNameBytes, 0, projectNameBytes.Length);   // 프로젝트 이름 송신
+
+                    // 파일 개수 송신
+                    int fileCount = fileListBoxControl.ItemCount;
+                    byte[] fileCountBytes = BitConverter.GetBytes(fileCount);
+                    clientStream.Write(fileCountBytes, 0, fileCountBytes.Length);
+
+                    progressBarControl.Properties.Maximum = fileCount;
+
+                    // 리눅스 서버 SFTP 설정 방법은 다음과 같습니다.
+                    // 1. sudo apt install vsftpd로 설치
+                    // 2. ps aux | grep vsftpd로 확인
+                    // 3. systemctl restart vsftpd
+                    // 4. systemctl enable vsftpd
+
+                    // 저장 경로: /home/계정명/프로젝트명
+                    string remoteDirectory = "/home/" + textEdit_id.Text + "/" + textEdit_projectName.Text;
+
+                    // 접속 정보
+                    // 서버 IP: textEdit_serverIP.Text
+                    // 서버 포트: textEdit_serverPort.Text
+                    // 서버 ID: textEdit_id.Text
+                    // 서버 Password: textEdit_password.Text
+                    using (var sftp = new SftpClient(textEdit_serverIP.Text, int.Parse(textEdit_serverPort.Text), textEdit_id.Text, textEdit_password.Text))
+                    {
+                        try
+                        {
+                            sftp.Connect();
+
+                            if (!sftp.Exists(remoteDirectory))
+                            {
+                                sftp.CreateDirectory(remoteDirectory);
+                            }
+
+                            for (int i = 0; i < fileCount; i++)
+                            {
+                                string filePath = fileListBoxControl.Items[i].ToString();
+
+                                string fileName = Path.GetFileName(filePath);
+                                string remoteFilePath = remoteDirectory.TrimEnd('/') + "/" + Path.GetFileName(fileName);
+
+                                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+                                {
+                                    sftp.UploadFile(fs, remoteFilePath, true);
+                                }
+
+                                await Task.Run((() => progressBarControl.PerformStep()));
+
+                                GC.Collect();
+                            }
+
+                            sftp.Disconnect();
+                        }
+                        catch (SftpPermissionDeniedException ep)
+                        {
+                            Console.WriteLine($"Permission Denied: {ep.Message}");
+                        }
+                        catch (Exception ex)
+                        {
+                            XtraMessageBox.Show($"SFTP 연결에 실패했습니다. ({ex.Message})", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            return;
+                        }
+                    }
+
+                    bSendSuccess = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Handle exception
+            }
+        }
+        catch (Exception ex)
+        {
+            XtraMessageBox.Show($"서버에 연결할 수 없습니다. ({ex.Message})", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        if (bSendSuccess)
+            XtraMessageBox.Show("파일 전송이 완료되었습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+}
+```
+
 * 소켓 전송 예제 (서버)
 
 ![image](https://github.com/Soonbum/ObjectIRX_ManagedDotNetGuide/assets/16474083/4716bc32-9fa2-4e16-af0e-6980c3be6d6f)
