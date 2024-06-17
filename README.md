@@ -3934,24 +3934,136 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 * 레이어 상태 저장/복구
   - 도면에 저장된 레이어 상태 리스팅
     ```cs
-    ```
-  - 레이어 상태 관리하기
-    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        LayerStateManager acLyrStMan;
+        acLyrStMan = acCurDb.LayerStateManager;
+
+        DBDictionary acDbDict;
+        acDbDict = acTrans.GetObject(acLyrStMan.LayerStatesDictionaryId(true), OpenMode.ForRead) as DBDictionary;
+
+        string sLayerStateNames = "";
+
+        foreach (DBDictionaryEntry acDbDictEnt in acDbDict)
+        {
+            sLayerStateNames = sLayerStateNames + "\n" + acDbDictEnt.Key;
+        }
+
+        Application.ShowAlertDialog("The saved layer settings in this drawing are:" + sLayerStateNames);
+
+        // Dispose of the transaction
+    }
     ```
   - 레이어 상태 저장하기
     ```cs
+    // Get the current document
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+ 
+    LayerStateManager acLyrStMan;
+    acLyrStMan = acDoc.Database.LayerStateManager;
+ 
+    string sLyrStName = "ColorLinetype";
+ 
+    if (acLyrStMan.HasLayerState(sLyrStName) == false)
+    {
+        acLyrStMan.SaveLayerState(sLyrStName,
+                                  LayerStateMasks.Color | 
+                                  LayerStateMasks.LineType,
+                                  ObjectId.Null);
+    }
     ```
   - 레이어 상태 이름 변경하기
     ```cs
+    // Get the current document
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+ 
+    LayerStateManager acLyrStMan;
+    acLyrStMan = acDoc.Database.LayerStateManager;
+ 
+    string sLyrStName = "ColorLinetype";
+    string sLyrStNewName = "OldColorLinetype";
+ 
+    if (acLyrStMan.HasLayerState(sLyrStName) == true &&
+        acLyrStMan.HasLayerState(sLyrStNewName) == false)
+    {
+        acLyrStMan.RenameLayerState(sLyrStName, sLyrStNewName);
+    }
     ```
   - 레이어 상태 제거하기
     ```cs
+    // Get the current document
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+    LayerStateManager acLyrStMan;
+    acLyrStMan = acDoc.Database.LayerStateManager;
+
+    string sLyrStName = "ColorLinetype";
+
+    if (acLyrStMan.HasLayerState(sLyrStName) == true)
+    {
+        acLyrStMan.DeleteLayerState(sLyrStName);
+    }
     ```
   - 레이어 상태 복구하기
     ```cs
+    // Get the current document
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+ 
+    LayerStateManager acLyrStMan;
+    acLyrStMan = acDoc.Database.LayerStateManager;
+ 
+    string sLyrStName = "ColorLinetype";
+ 
+    if (acLyrStMan.HasLayerState(sLyrStName) == true)
+    {
+        acLyrStMan.RestoreLayerState(sLyrStName,                 // 복구하고자 하는 레이어 상태의 이름
+                                     ObjectId.Null,              // 복구하고자 하는 레이어 설정이 있는 뷰포트의 오브젝트 ID
+                                     1,                          // 0 - 레이어 상태에 속하지 않은 레이어는 변경되지 않음, 1 - 레이어 상태에 속하지 않은 레이어는 꺼짐, 2 - 현재 뷰포트에서 레이어 상태에 속하지 않은 레이어는 동결됨, 4 - 레이어 설정이 뷰포트 오버라이드로 복원됨
+                                     LayerStateMasks.Color |
+                                     LayerStateMasks.LineType);  // 마스크 값: 어떤 레이어 설정이 복원될지 결정함
+    }
     ```
-  - 저장된 레이어 상태 내보내기/가져오기
+  - 저장된 레이어 상태 내보내기
     ```cs
+    // Get the current document
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+    LayerStateManager acLyrStMan;
+    acLyrStMan = acDoc.Database.LayerStateManager;
+
+    string sLyrStName = "ColorLinetype";
+
+    if (acLyrStMan.HasLayerState(sLyrStName) == true)
+    {
+        acLyrStMan.ExportLayerState(sLyrStName, "c:\\my documents\\" + sLyrStName + ".las");
+    }
+    ```
+  - 저장된 레이어 상태 가져오기
+    ```cs
+    // Get the current document
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+    LayerStateManager acLyrStMan;
+    acLyrStMan = acDoc.Database.LayerStateManager;
+
+    string sLyrStFileName = "c:\\my documents\\ColorLinetype.las";
+
+    if (System.IO.File.Exists(sLyrStFileName))
+    {
+        try
+        {
+            acLyrStMan.ImportLayerState(sLyrStFileName);
+        }
+        catch (Autodesk.AutoCAD.Runtime.Exception ex)
+        {
+            Application.ShowAlertDialog(ex.Message);
+        }
+    }
     ```
 
 * 도면에 텍스트 추가하기
