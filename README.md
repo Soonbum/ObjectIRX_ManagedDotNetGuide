@@ -3743,30 +3743,192 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 * 프로퍼티 (라인타입) 조작하기
   - 라인타입 불러오기
     ```cs
-    ```
-  - 라인타입 활성화하기
-    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Linetype table for read
+        LinetypeTable acLineTypTbl;
+        acLineTypTbl = acTrans.GetObject(acCurDb.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
+
+        string sLineTypName = "Center";
+
+        if (acLineTypTbl.Has(sLineTypName) == false)
+        {
+            // Load the Center Linetype
+            acCurDb.LoadLineTypeFile(sLineTypName, "acad.lin");
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 오브젝트에 라인타입 할당하기
     ```cs
+    // 참고로 라인타입은 3가지가 있음: BYBLOCK, BYLAYER, CONTINUOUS
+
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Linetype table for read
+        LinetypeTable acLineTypTbl;
+        acLineTypTbl = acTrans.GetObject(acCurDb.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
+
+        string sLineTypName = "Center";
+
+        if (acLineTypTbl.Has(sLineTypName) == false)
+        {
+            acCurDb.LoadLineTypeFile(sLineTypName, "acad.lin");
+        }
+
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a circle object
+        using (Circle acCirc = new Circle())
+        {
+            acCirc.Center = new Point3d(2, 2, 0);
+            acCirc.Radius = 1;
+            acCirc.Linetype = sLineTypName;
+
+            acBlkTblRec.AppendEntity(acCirc);
+            acTrans.AddNewlyCreatedDBObject(acCirc, true);
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 데이터베이스를 통해 현재 라인타입으로 설정하기
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Linetype table for read
+        LinetypeTable acLineTypTbl;
+        acLineTypTbl = acTrans.GetObject(acCurDb.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
+
+        string sLineTypName = "Center";
+
+        if (acLineTypTbl.Has(sLineTypName) == true)
+        {
+            // Set the linetype Center current
+            acCurDb.Celtype = acLineTypTbl[sLineTypName];
+
+            // Save the changes
+            acTrans.Commit();
+        }
+
+        // Dispose of the transaction
+    }
     ```
   - CELTYPE 시스템 변수를 통해 현재 라인타입으로 설정하기
     ```cs
+    Application.SetSystemVariable("CELTYPE", "Center");
     ```
-  - 라인타입 이름 변경
+  - 라인타입 설명 변경하기
     ```cs
+    // 라인타입 설명은 최대 47 글자 가능. 설명은 주석 또는 일련의 밑줄, 점, 대시 및 공백을 사용하여 선 유형 패턴을 간단하게 나타낼 수 있다.
+    
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+ 
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Linetype table record of the current linetype for write
+        LinetypeTableRecord acLineTypTblRec;
+        acLineTypTblRec = acTrans.GetObject(acCurDb.Celtype, OpenMode.ForWrite) as LinetypeTableRecord;
+ 
+        // Change the description of the current linetype
+        acLineTypTblRec.AsciiDescription = "Exterior Wall";
+ 
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
-  - 라인타입 삭제
+  - 라인타입 스케일 지정하기
     ```cs
-    ```
-  - 라인타입 설명 변경
-    ```cs
-    ```
-  - 라인타입 스케일 지정
-    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Save the current linetype
+        ObjectId acObjId = acCurDb.Celtype;
+
+        // Set the global linetype scale
+        acCurDb.Ltscale = 3;
+
+        // Open the Linetype table for read
+        LinetypeTable acLineTypTbl;
+        acLineTypTbl = acTrans.GetObject(acCurDb.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
+
+        string sLineTypName = "Border";
+
+        if (acLineTypTbl.Has(sLineTypName) == false)
+        {
+            acCurDb.LoadLineTypeFile(sLineTypName, "acad.lin");
+        }
+
+        // Set the Border linetype current
+        acCurDb.Celtype = acLineTypTbl[sLineTypName];
+
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a circle object and set its linetype
+        // scale to half of full size
+        using (Circle acCirc1 = new Circle())
+        {
+            acCirc1.Center = new Point3d(2, 2, 0);
+            acCirc1.Radius = 4;
+            acCirc1.LinetypeScale = 0.5;
+
+            acBlkTblRec.AppendEntity(acCirc1);
+            acTrans.AddNewlyCreatedDBObject(acCirc1, true);
+
+            // Create a second circle object
+            using (Circle acCirc2 = new Circle())
+            {
+                acCirc2.Center = new Point3d(12, 2, 0);
+                acCirc2.Radius = 4;
+
+                acBlkTblRec.AppendEntity(acCirc2);
+                acTrans.AddNewlyCreatedDBObject(acCirc2, true);
+            }
+        }
+
+        // Restore the original active linetype
+        acCurDb.Celtype = acObjId;
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
 
 * 레이어 상태 저장/복구
