@@ -2592,13 +2592,11 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         // Open the Block table for read
         BlockTable acBlkTbl;
-        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
-                                        OpenMode.ForRead) as BlockTable;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
 
         // Open the Block table record Model space for write
         BlockTableRecord acBlkTblRec;
-        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                        OpenMode.ForWrite) as BlockTableRecord;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
 
         // Create a circle that is at 2,3 with a radius of 4.25
         using (Circle acCirc = new Circle())
@@ -2634,13 +2632,11 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         // Open the Block table for read
         BlockTable acBlkTbl;
-        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
-                                        OpenMode.ForRead) as BlockTable;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
 
         // Open the Block table record Model space for write
         BlockTableRecord acBlkTblRec;
-        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                        OpenMode.ForWrite) as BlockTableRecord;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
 
         // Create a circle that is at (0,0,0) with a radius of 5
         using (Circle acCirc1 = new Circle())
@@ -2802,13 +2798,11 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         // Open the Block table for read
         BlockTable acBlkTbl;
-        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
-                                        OpenMode.ForRead) as BlockTable;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
 
         // Open the Block table record Model space for write
         BlockTableRecord acBlkTblRec;
-        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                        OpenMode.ForWrite) as BlockTableRecord;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
 
         // Create a lightweight polyline
         using (Polyline acPoly = new Polyline())
@@ -2913,13 +2907,11 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         // Open the Block table for read
         BlockTable acBlkTbl;
-        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
-                                        OpenMode.ForRead) as BlockTable;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
 
         // Open the Block table record Model space for write
         BlockTableRecord acBlkTblRec;
-        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                        OpenMode.ForWrite) as BlockTableRecord;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
 
         // Create a circle that is at 2,2 with a radius of 0.5
         using (Circle acCirc = new Circle())
@@ -2953,13 +2945,11 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         // Open the Block table for read
         BlockTable acBlkTbl;
-        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
-                                     OpenMode.ForRead) as BlockTable;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
 
         // Open the Block table record Model space for write
         BlockTableRecord acBlkTblRec;
-        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                        OpenMode.ForWrite) as BlockTableRecord;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
 
         // Create a lightweight polyline
         using (Polyline acPoly = new Polyline())
@@ -3003,13 +2993,11 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         // Open the Block table for read
         BlockTable acBlkTbl;
-        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
-                                        OpenMode.ForRead) as BlockTable;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
 
         // Open the Block table record Model space for write
         BlockTableRecord acBlkTblRec;
-        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                        OpenMode.ForWrite) as BlockTableRecord;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
 
         // Create a lightweight polyline
         using (Polyline acPoly = new Polyline())
@@ -3063,13 +3051,11 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         // Open the Block table for read
         BlockTable acBlkTbl;
-        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
-                                     OpenMode.ForRead) as BlockTable;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
 
         // Open the Block table record Model space for write
         BlockTableRecord acBlkTblRec;
-        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                        OpenMode.ForWrite) as BlockTableRecord;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
 
         // Create a lightweight polyline
         using (Polyline acPoly = new Polyline())
@@ -3108,13 +3094,11 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         // Open the Block table for read
         BlockTable acBlkTbl;
-        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
-                                        OpenMode.ForRead) as BlockTable;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
 
         // Open the Block table record Model space for write
         BlockTableRecord acBlkTblRec;
-        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                        OpenMode.ForWrite) as BlockTableRecord;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
 
         // Create a line that starts at (4,4,0) and ends at (7,7,0)
         using (Line acLine = new Line(new Point3d(4, 4, 0),
@@ -3148,13 +3132,11 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         // Open the Block table for read
         BlockTable acBlkTbl;
-        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
-                                        OpenMode.ForRead) as BlockTable;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
 
         // Open the Block table record Model space for write
         BlockTableRecord acBlkTblRec;
-        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                        OpenMode.ForWrite) as BlockTableRecord;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
 
         // Create a lightweight polyline
         using (Polyline acPoly = new Polyline())
@@ -3203,8 +3185,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 
         // Open the Block table record Model space for write
         BlockTableRecord acBlkTblRec;
-        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                        OpenMode.ForWrite) as BlockTableRecord;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
 
         // Create a lightweight polyline
         using (Polyline acPoly = new Polyline())
@@ -3335,8 +3316,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     {
         // Open the Layer table for read
         LayerTable acLyrTbl;
-        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId,
-                                        OpenMode.ForRead) as LayerTable;
+        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
 
         string sLayerName = "Center";
 
@@ -3354,21 +3334,335 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     ```
   - 레이어 켜고 끄기
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Layer table for read
+        LayerTable acLyrTbl;
+        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+        string sLayerName = "ABC";
+
+        if (acLyrTbl.Has(sLayerName) == false)
+        {
+            using (LayerTableRecord acLyrTblRec = new LayerTableRecord())
+            {
+                // Assign the layer a name
+                acLyrTblRec.Name = sLayerName;
+
+                // Turn the layer off
+                acLyrTblRec.IsOff = true;
+
+                // Upgrade the Layer table for write
+                acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForWrite);
+
+                // Append the new layer to the Layer table and the transaction
+                acLyrTbl.Add(acLyrTblRec);
+                acTrans.AddNewlyCreatedDBObject(acLyrTblRec, true);
+            }
+        }
+        else
+        {
+            LayerTableRecord acLyrTblRec = acTrans.GetObject(acLyrTbl[sLayerName], OpenMode.ForWrite) as LayerTableRecord;
+
+            // Turn the layer off
+            acLyrTblRec.IsOff = true;
+        }
+
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a circle object
+        using (Circle acCirc = new Circle())
+        {
+            acCirc.Center = new Point3d(2, 2, 0);
+            acCirc.Radius = 1;
+            acCirc.Layer = sLayerName;
+
+            acBlkTblRec.AppendEntity(acCirc);
+            acTrans.AddNewlyCreatedDBObject(acCirc, true);
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 레이어 동결/해동
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Layer table for read
+        LayerTable acLyrTbl;
+        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+        string sLayerName = "ABC";
+
+        if (acLyrTbl.Has(sLayerName) == false)
+        {
+            using (LayerTableRecord acLyrTblRec = new LayerTableRecord())
+            {
+                // Assign the layer a name
+                acLyrTblRec.Name = sLayerName;
+
+                // Freeze the layer
+                acLyrTblRec.IsFrozen = true;
+
+                // Upgrade the Layer table for write
+                acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForWrite);
+
+                // Append the new layer to the Layer table and the transaction
+                acLyrTbl.Add(acLyrTblRec);
+                acTrans.AddNewlyCreatedDBObject(acLyrTblRec, true);
+            }
+        }
+        else
+        {
+            LayerTableRecord acLyrTblRec = acTrans.GetObject(acLyrTbl[sLayerName], OpenMode.ForWrite) as LayerTableRecord;
+
+            // Freeze the layer
+            acLyrTblRec.IsFrozen = true;
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 레이어 잠금/잠금해제
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Layer table for read
+        LayerTable acLyrTbl;
+        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+        string sLayerName = "ABC";
+
+        if (acLyrTbl.Has(sLayerName) == false)
+        {
+            using (LayerTableRecord acLyrTblRec = new LayerTableRecord())
+            {
+                // Assign the layer a name
+                acLyrTblRec.Name = sLayerName;
+
+                // Lock the layer
+                acLyrTblRec.IsLocked = true;
+
+                // Upgrade the Layer table for write
+                acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForWrite);
+
+                // Append the new layer to the Layer table and the transaction
+                acLyrTbl.Add(acLyrTblRec);
+                acTrans.AddNewlyCreatedDBObject(acLyrTblRec, true);
+            }
+        }
+        else
+        {
+            LayerTableRecord acLyrTblRec = acTrans.GetObject(acLyrTbl[sLayerName], OpenMode.ForWrite) as LayerTableRecord;
+
+            // Lock the layer
+            acLyrTblRec.IsLocked = true;
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 레이어에 컬러 할당하기
     ```cs
+    // ACI 컬러값: 0 ~ 256 중 하나. (0은 BYBLOCK, 256은 BYLAYER, 음수는 레이어가 꺼져 있음을 의미함)
+    // ColorIndex 프로퍼티는 ACI 컬러값만 지원하지만, Color 프로퍼티는 컬러북 컬러, RGB 값도 지원함
+
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Layer table for read
+        LayerTable acLyrTbl;
+        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+        // Define an array of layer names
+        string[] sLayerNames = new string[3];
+        sLayerNames[0] = "ACIRed";
+        sLayerNames[1] = "TrueBlue";
+        sLayerNames[2] = "ColorBookYellow";
+
+        // Define an array of colors for the layers
+        Color[] acColors = new Color[3];
+        acColors[0] = Color.FromColorIndex(ColorMethod.ByAci, 1);
+        acColors[1] = Color.FromRgb(23, 54, 232);
+        acColors[2] = Color.FromNames("PANTONE Yellow 0131 C",
+                                      "PANTONE+ Pastels & Neons Coated");
+
+        int nCnt = 0;
+
+        // Add or change each layer in the drawing
+        foreach (string sLayerName in sLayerNames)
+        {
+            if (acLyrTbl.Has(sLayerName) == false)
+            {
+                using (LayerTableRecord acLyrTblRec = new LayerTableRecord())
+                {
+                    // Assign the layer a name
+                    acLyrTblRec.Name = sLayerName;
+
+                    // Set the color of the layer
+                    acLyrTblRec.Color = acColors[nCnt];
+
+                    // Upgrade the Layer table for write
+                    if (acLyrTbl.IsWriteEnabled == false) acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForWrite);
+
+                    // Append the new layer to the Layer table and the transaction
+                    acLyrTbl.Add(acLyrTblRec);
+                    acTrans.AddNewlyCreatedDBObject(acLyrTblRec, true);
+                }
+            }
+            else
+            {
+                // Open the layer if it already exists for write
+                LayerTableRecord acLyrTblRec = acTrans.GetObject(acLyrTbl[sLayerName], OpenMode.ForWrite) as LayerTableRecord;
+
+                // Set the color of the layer
+                acLyrTblRec.Color = acColors[nCnt];
+            }
+
+            nCnt = nCnt + 1;
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 레이어에 라인타입 할당하기
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Layer table for read
+        LayerTable acLyrTbl;
+        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+        string sLayerName = "ABC";
+
+        if (acLyrTbl.Has(sLayerName) == false)
+        {
+            using (LayerTableRecord acLyrTblRec = new LayerTableRecord())
+            {
+                // Assign the layer a name
+                acLyrTblRec.Name = sLayerName;
+
+                // Open the Layer table for read
+                LinetypeTable acLinTbl;
+                acLinTbl = acTrans.GetObject(acCurDb.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
+
+                if (acLinTbl.Has("Center") == true)
+                {
+                    // Set the linetype for the layer
+                    acLyrTblRec.LinetypeObjectId = acLinTbl["Center"];
+                }
+
+                // Upgrade the Layer table for write
+                acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForWrite);
+
+                // Append the new layer to the Layer table and the transaction
+                acLyrTbl.Add(acLyrTblRec);
+                acTrans.AddNewlyCreatedDBObject(acLyrTblRec, true);
+            }
+        }
+        else
+        {
+            LayerTableRecord acLyrTblRec = acTrans.GetObject(acLyrTbl[sLayerName], OpenMode.ForRead) as LayerTableRecord;
+
+            // Open the Layer table for read
+            LinetypeTable acLinTbl;
+            acLinTbl = acTrans.GetObject(acCurDb.LinetypeTableId, OpenMode.ForRead) as LinetypeTable;
+
+            if (acLinTbl.Has("Center") == true)
+            {
+                // Upgrade the Layer Table Record for write
+                acTrans.GetObject(acLyrTbl[sLayerName], OpenMode.ForWrite);
+
+                // Set the linetype for the layer
+                acLyrTblRec.LinetypeObjectId = acLinTbl["Center"];
+            }
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 레이어 삭제
     ```cs
+    // 현재 레이어, 레이어 0, xref-의존 레이어, 오브젝트를 포함하는 레이어는 삭제할 수 없음
+    // 레이어 삭제 후에 확실하게 삭제되었는지 확인하기 위해 Purge 함수를 사용하는 것을 권장함
+    // 주의: 특수 레이어 DEFPOINTS와 함께 블록 정의가 참조하는 레이어는 보이는 레이어가 없다 하더라도 삭제할 수 없음
+    
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Layer table for read
+        LayerTable acLyrTbl;
+        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+        string sLayerName = "ABC";
+
+        if (acLyrTbl.Has(sLayerName) == true)
+        {
+            // Check to see if it is safe to erase layer
+            ObjectIdCollection acObjIdColl = new ObjectIdCollection();
+            acObjIdColl.Add(acLyrTbl[sLayerName]);
+            acCurDb.Purge(acObjIdColl);
+
+            if (acObjIdColl.Count > 0)
+            {
+                LayerTableRecord acLyrTblRec;
+                acLyrTblRec = acTrans.GetObject(acObjIdColl[0], OpenMode.ForWrite) as LayerTableRecord;
+
+                try
+                {
+                    // Erase the unreferenced layer
+                    acLyrTblRec.Erase(true);
+
+                    // Save the changes and dispose of the transaction
+                    acTrans.Commit();
+                }
+                catch (Autodesk.AutoCAD.Runtime.Exception Ex)
+                {
+                    // Layer could not be deleted
+                    Application.ShowAlertDialog("Error:\n" + Ex.Message);
+                }
+            }
+        }
+    }
     ```
 
 * 프로퍼티 (컬러) 조작하기
