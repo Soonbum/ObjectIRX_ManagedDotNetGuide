@@ -4069,48 +4069,300 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 * 도면에 텍스트 추가하기
   - 멀티라인 텍스트 추가하기
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a multiline text object
+        using (MText acMText = new MText())
+        {
+            acMText.Location = new Point3d(2, 2, 0);
+            acMText.Width = 4;
+            acMText.Contents = "This is a text string for the MText object.";
+
+            acBlkTblRec.AppendEntity(acMText);
+            acTrans.AddNewlyCreatedDBObject(acMText, true);
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 멀티라인 텍스트 포맷
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a multiline text object
+        using (MText acMText = new MText())
+        {
+            acMText.Location = new Point3d(2, 2, 0);
+            acMText.Width = 4.5;
+            acMText.Contents = "{{\\H1.5x; Big text}\\A2; over text\\A1;/\\A0;under text}";
+
+            acBlkTblRec.AppendEntity(acMText);
+            acTrans.AddNewlyCreatedDBObject(acMText, true);
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 싱글라인 텍스트 생성하기
     ```cs
-    ```
-  - 싱글라인 텍스트 변경하기
-    ```cs
-    ```
-  - 텍스트 높이 설정하기
-    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a single-line text object
+        using (DBText acText = new DBText())
+        {
+            acText.Position = new Point3d(2, 2, 0);
+            acText.Height = 0.5;
+            acText.TextString = "Hello, World.";
+
+            acBlkTblRec.AppendEntity(acText);
+            acTrans.AddNewlyCreatedDBObject(acText, true);
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 기울임 각도 설정하기
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a single-line text object
+        using (DBText acText = new DBText())
+        {
+            acText.Position = new Point3d(3, 3, 0);
+            acText.Height = 0.5;
+            acText.TextString = "Hello, World.";
+
+            // Change the oblique angle of the text object to 45 degrees(0.707 in radians)
+            acText.Oblique = 0.707;
+
+            acBlkTblRec.AppendEntity(acText);
+            acTrans.AddNewlyCreatedDBObject(acText, true);
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 텍스트 정렬하기
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        string[] textString = new string[3];
+        textString[0] = "Left";
+        textString[1] = "Center";
+        textString[2] = "Right";
+
+        int[] textAlign = new int[3];
+        textAlign[0] = (int)TextHorizontalMode.TextLeft;
+        textAlign[1] = (int)TextHorizontalMode.TextCenter;
+        textAlign[2] = (int)TextHorizontalMode.TextRight;
+
+        Point3d acPtIns = new Point3d(3, 3, 0);
+        Point3d acPtAlign = new Point3d(3, 3, 0);
+
+        int nCnt = 0;
+
+        foreach (string strVal in textString)
+        {
+            // Create a single-line text object
+            using (DBText acText = new DBText())
+            {
+                acText.Position = acPtIns;
+                acText.Height = 0.5;
+                acText.TextString = strVal;
+
+                // Set the alignment for the text
+                acText.HorizontalMode = (TextHorizontalMode)textAlign[nCnt];
+
+                if (acText.HorizontalMode != TextHorizontalMode.TextLeft)
+                {
+                    acText.AlignmentPoint = acPtAlign;
+                }
+
+                acBlkTblRec.AppendEntity(acText);
+                acTrans.AddNewlyCreatedDBObject(acText, true);
+            }
+
+            // Create a point over the alignment point of the text
+            using (DBPoint acPoint = new DBPoint(acPtAlign))
+            {
+                acPoint.ColorIndex = 1;
+
+                acBlkTblRec.AppendEntity(acPoint);
+                acTrans.AddNewlyCreatedDBObject(acPoint, true);
+
+                // Adjust the insertion and alignment points
+                acPtIns = new Point3d(acPtIns.X, acPtIns.Y + 3, 0);
+                acPtAlign = acPtIns;
+            }
+
+            nCnt = nCnt + 1;
+        }
+
+        // Set the point style to crosshair
+        Application.SetSystemVariable("PDMODE", 2);
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 텍스트 생성 플래그 설정하기
     ```cs
-    ```
-  - 텍스트 스타일 생성/변경하기
-    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a single-line text object
+        using (DBText acText = new DBText())
+        {
+            acText.Position = new Point3d(3, 3, 0);
+            acText.Height = 0.5;
+            acText.TextString = "Hello, World.";
+
+            // Display the text backwards
+            acText.IsMirroredInX = true;
+
+            acBlkTblRec.AppendEntity(acText);
+            acTrans.AddNewlyCreatedDBObject(acText, true);
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 글꼴 할당하기
     ```cs
-    ```
-  - TrueType 글꼴 사용하기
-    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+ 
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the current text style for write
+        TextStyleTableRecord acTextStyleTblRec;
+        acTextStyleTblRec = acTrans.GetObject(acCurDb.Textstyle, OpenMode.ForWrite) as TextStyleTableRecord;
+ 
+        // Get the current font settings
+        Autodesk.AutoCAD.GraphicsInterface.FontDescriptor acFont;
+        acFont = acTextStyleTblRec.Font;
+ 
+        // Update the text style's typeface with "PlayBill"
+        Autodesk.AutoCAD.GraphicsInterface.FontDescriptor acNewFont;
+        acNewFont = new
+          Autodesk.AutoCAD.GraphicsInterface.FontDescriptor("PlayBill",
+                                                            acFont.Bold,
+                                                            acFont.Italic,
+                                                            acFont.CharacterSet,
+                                                            acFont.PitchAndFamily);
+ 
+        acTextStyleTblRec.Font = acNewFont;
+ 
+        acDoc.Editor.Regen();
+ 
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - Unicode 및 큰 글꼴 사용하기
     ```cs
-    ```
-  - 대체용 글꼴
-    ```cs
-    ```
-  - Unicode 문자, 제어 코드, 특수 문자 사용하기
-    ```cs
-    ```
-  - 스펠링 체크
-    ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the current text style for write
+        TextStyleTableRecord acTextStyleTblRec;
+        acTextStyleTblRec = acTrans.GetObject(acCurDb.Textstyle, OpenMode.ForWrite) as TextStyleTableRecord;
+
+        // Change the font files used for both Big and Regular fonts
+        acTextStyleTblRec.BigFontFileName = "C:/AutoCAD/Fonts/bigfont.shx";
+        acTextStyleTblRec.FileName = "C:/AutoCAD/Fonts/italic.shx";
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
 
 * 치수 및 공차
