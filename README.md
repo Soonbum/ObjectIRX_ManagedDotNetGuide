@@ -3668,12 +3668,76 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 * 프로퍼티 (컬러) 조작하기
   - 오브젝트에 컬러 값 할당하기
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Define an array of colors for the layers
+        Color[] acColors = new Color[3];
+        acColors[0] = Color.FromColorIndex(ColorMethod.ByAci, 1);
+        acColors[1] = Color.FromRgb(23, 54, 232);
+        acColors[2] = Color.FromNames("PANTONE Yellow 0131 C",
+                                      "PANTONE(R) pastel coated");
+
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a circle object and assign it the ACI value of 4
+        Point3d acPt = new Point3d(0, 3, 0);
+        using (Circle acCirc = new Circle())
+        {
+            acCirc.Center = acPt;
+            acCirc.Radius = 1;
+            acCirc.ColorIndex = 4;
+
+            acBlkTblRec.AppendEntity(acCirc);
+            acTrans.AddNewlyCreatedDBObject(acCirc, true);
+
+            int nCnt = 0;
+
+            while (nCnt < 3)
+            {
+                // Create a copy of the circle
+                Circle acCircCopy;
+                acCircCopy = acCirc.Clone() as Circle;
+
+                // Shift the copy along the Y-axis
+                acPt = new Point3d(acPt.X, acPt.Y + 3, acPt.Z);
+                acCircCopy.Center = acPt;
+
+                // Assign the new color to the circle
+                acCircCopy.Color = acColors[nCnt];
+
+                acBlkTblRec.AppendEntity(acCircCopy);
+                acTrans.AddNewlyCreatedDBObject(acCircCopy, true);
+
+                nCnt = nCnt + 1;
+            }
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 데이터베이스를 통해 현재 컬러로 설정하기
     ```cs
+    // Get the current document
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+ 
+    // Set the current color
+    acDoc.Database.Cecolor = Color.FromColorIndex(ColorMethod.ByLayer, 256);
     ```
   - CECOLOR 시스템 변수를 통해 현재 컬러로 설정하기
     ```cs
+    Application.SetSystemVariable("CECOLOR", "1");
     ```
 
 * 프로퍼티 (라인타입) 조작하기
