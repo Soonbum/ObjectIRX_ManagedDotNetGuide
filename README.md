@@ -3239,14 +3239,118 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     ```
 
 * 프로퍼티 (레이어) 조작하기
-  - 레이어 및 라인타입 정렬하기
+  - 레이어 이름 나열하기
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Layer table for read
+        LayerTable acLyrTbl;
+        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+        string sLayerNames = "";
+
+        foreach (ObjectId acObjId in acLyrTbl)
+        {
+            LayerTableRecord acLyrTblRec;
+            acLyrTblRec = acTrans.GetObject(acObjId, OpenMode.ForRead) as LayerTableRecord;
+
+            sLayerNames = sLayerNames + "\n" + acLyrTblRec.Name;
+        }
+
+        Application.ShowAlertDialog("The layers in this drawing are: " + sLayerNames);
+
+        // Dispose of the transaction
+    }
     ```
   - 레이어 생성 및 이름 붙이기
     ```cs
+    // 레이어 이름: 최대 255글자이며 글자, 숫자 및 일부 특수문자($, -, _)로 구성할 수 있음
+    
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Layer table for read
+        LayerTable acLyrTbl;
+        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+        string sLayerName = "Center";
+
+        if (acLyrTbl.Has(sLayerName) == false)
+        {
+            using (LayerTableRecord acLyrTblRec = new LayerTableRecord())
+            {
+                // Assign the layer the ACI color 3 and a name
+                acLyrTblRec.Color = Color.FromColorIndex(ColorMethod.ByAci, 3);
+                acLyrTblRec.Name = sLayerName;
+
+                // Upgrade the Layer table for write
+                acTrans.GetObject(acCurDb.LayerTableId, OpenMode.ForWrite);
+
+                // Append the new layer to the Layer table and the transaction
+                acLyrTbl.Add(acLyrTblRec);
+                acTrans.AddNewlyCreatedDBObject(acLyrTblRec, true);
+            }
+        }
+
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a circle object
+        using (Circle acCirc = new Circle())
+        {
+            acCirc.Center = new Point3d(2, 2, 0);
+            acCirc.Radius = 1;
+            acCirc.Layer = sLayerName;
+
+            acBlkTblRec.AppendEntity(acCirc);
+            acTrans.AddNewlyCreatedDBObject(acCirc, true);
+        }
+
+        // Save the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 현재 레이어로 설정하기
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Layer table for read
+        LayerTable acLyrTbl;
+        acLyrTbl = acTrans.GetObject(acCurDb.LayerTableId,
+                                        OpenMode.ForRead) as LayerTable;
+
+        string sLayerName = "Center";
+
+        if (acLyrTbl.Has(sLayerName) == true)
+        {
+            // Set the layer Center current
+            acCurDb.Clayer = acLyrTbl[sLayerName];
+
+            // Save the changes
+            acTrans.Commit();
+        }
+
+        // Dispose of the transaction
+    }
     ```
   - 레이어 켜고 끄기
     ```cs
