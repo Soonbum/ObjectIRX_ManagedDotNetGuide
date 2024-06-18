@@ -5624,20 +5624,702 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 
 * 블록으로 작업하기
   - 블록 정의하기
+    ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        if (!acBlkTbl.Has("CircleBlock"))
+        {
+            using (BlockTableRecord acBlkTblRec = new BlockTableRecord())
+            {
+                acBlkTblRec.Name = "CircleBlock";
+
+                // Set the insertion point for the block
+                acBlkTblRec.Origin = new Point3d(0, 0, 0);
+
+                // Add a circle to the block
+                using (Circle acCirc = new Circle())
+                {
+                    acCirc.Center = new Point3d(0, 0, 0);
+                    acCirc.Radius = 2;
+
+                    acBlkTblRec.AppendEntity(acCirc);
+
+                    acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForWrite);
+                    acBlkTbl.Add(acBlkTblRec);
+                    acTrans.AddNewlyCreatedDBObject(acBlkTblRec, true);
+                }
+            }
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
+    ```
   - 블록 삽입하기
+    ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        ObjectId blkRecId = ObjectId.Null;
+
+        if (!acBlkTbl.Has("CircleBlock"))
+        {
+            using (BlockTableRecord acBlkTblRec = new BlockTableRecord())
+            {
+                acBlkTblRec.Name = "CircleBlock";
+
+                // Set the insertion point for the block
+                acBlkTblRec.Origin = new Point3d(0, 0, 0);
+
+                // Add a circle to the block
+                using (Circle acCirc = new Circle())
+                {
+                    acCirc.Center = new Point3d(0, 0, 0);
+                    acCirc.Radius = 2;
+
+                    acBlkTblRec.AppendEntity(acCirc);
+
+                    acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForWrite);
+                    acBlkTbl.Add(acBlkTblRec);
+                    acTrans.AddNewlyCreatedDBObject(acBlkTblRec, true);
+                }
+
+                blkRecId = acBlkTblRec.Id;
+            }
+        }
+        else
+        {
+            blkRecId = acBlkTbl["CircleBlock"];
+        }
+
+        // Insert the block into the current space
+        if (blkRecId != ObjectId.Null)
+        {
+            using (BlockReference acBlkRef = new BlockReference(new Point3d(0, 0, 0), blkRecId))
+            {
+                BlockTableRecord acCurSpaceBlkTblRec;
+                acCurSpaceBlkTblRec = acTrans.GetObject(acCurDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+
+                acCurSpaceBlkTblRec.AppendEntity(acBlkRef);
+                acTrans.AddNewlyCreatedDBObject(acBlkRef, true);
+            }
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
+    ```
   - 블록 레퍼런스 분해하기
+    ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        ObjectId blkRecId = ObjectId.Null;
+
+        if (!acBlkTbl.Has("CircleBlock"))
+        {
+            using (BlockTableRecord acBlkTblRec = new BlockTableRecord())
+            {
+                acBlkTblRec.Name = "CircleBlock";
+
+                // Set the insertion point for the block
+                acBlkTblRec.Origin = new Point3d(0, 0, 0);
+
+                // Add a circle to the block
+                using (Circle acCirc = new Circle())
+                {
+                    acCirc.Center = new Point3d(0, 0, 0);
+                    acCirc.Radius = 2;
+
+                    acBlkTblRec.AppendEntity(acCirc);
+
+                    acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForWrite);
+                    acBlkTbl.Add(acBlkTblRec);
+                    acTrans.AddNewlyCreatedDBObject(acBlkTblRec, true);
+                }
+
+                blkRecId = acBlkTblRec.Id;
+            }
+        }
+        else
+        {
+            blkRecId = acBlkTbl["CircleBlock"];
+        }
+
+        // Insert the block into the current space
+        if (blkRecId != ObjectId.Null)
+        {
+            using (BlockReference acBlkRef = new BlockReference(new Point3d(0, 0, 0), blkRecId))
+            {
+                BlockTableRecord acCurSpaceBlkTblRec;
+                acCurSpaceBlkTblRec = acTrans.GetObject(acCurDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+
+                acCurSpaceBlkTblRec.AppendEntity(acBlkRef);
+                acTrans.AddNewlyCreatedDBObject(acBlkRef, true);
+
+                using (DBObjectCollection dbObjCol = new DBObjectCollection())
+                {
+                    acBlkRef.Explode(dbObjCol);
+
+                    foreach (DBObject dbObj in dbObjCol)
+                    {
+                        Entity acEnt = dbObj as Entity;
+
+                        acCurSpaceBlkTblRec.AppendEntity(acEnt);
+                        acTrans.AddNewlyCreatedDBObject(dbObj, true);
+
+                        acEnt = acTrans.GetObject(dbObj.ObjectId, OpenMode.ForWrite) as Entity;
+
+                        acEnt.ColorIndex = 1;
+                        Application.ShowAlertDialog("Exploded Object: " + acEnt.GetRXClass().DxfName);
+                    }
+                }
+            }
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
+    ```
   - 블록 재정의하기
+    ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        if (!acBlkTbl.Has("CircleBlock"))
+        {
+            using (BlockTableRecord acBlkTblRec = new BlockTableRecord())
+            {
+                acBlkTblRec.Name = "CircleBlock";
+
+                // Set the insertion point for the block
+                acBlkTblRec.Origin = new Point3d(0, 0, 0);
+
+                // Add a circle to the block
+                using (Circle acCirc = new Circle())
+                {
+                    acCirc.Center = new Point3d(0, 0, 0);
+                    acCirc.Radius = 2;
+
+                    acBlkTblRec.AppendEntity(acCirc);
+
+                    acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForWrite);
+                    acBlkTbl.Add(acBlkTblRec);
+                    acTrans.AddNewlyCreatedDBObject(acBlkTblRec, true);
+
+                    // Insert the block into the current space
+                    using (BlockReference acBlkRef = new BlockReference(new Point3d(0, 0, 0), acBlkTblRec.Id))
+                    {
+                        BlockTableRecord acModelSpace;
+                        acModelSpace = acTrans.GetObject(acCurDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+
+                        acModelSpace.AppendEntity(acBlkRef);
+                        acTrans.AddNewlyCreatedDBObject(acBlkRef, true);
+
+                        Application.ShowAlertDialog("CircleBlock has been created.");
+                    }
+                }
+            }
+        }
+        else
+        {
+            // Redefine the block if it exists
+            BlockTableRecord acBlkTblRec = acTrans.GetObject(acBlkTbl["CircleBlock"], OpenMode.ForWrite) as BlockTableRecord;
+
+            // Step through each object in the block table record
+            foreach (ObjectId objID in acBlkTblRec)
+            {
+                DBObject dbObj = acTrans.GetObject(objID, OpenMode.ForRead) as DBObject;
+
+                // Revise the circle in the block
+                if (dbObj is Circle)
+                {
+                    Circle acCirc = dbObj as Circle;
+
+                    acTrans.GetObject(objID, OpenMode.ForWrite);
+                    acCirc.Radius = acCirc.Radius * 2;
+                }
+            }
+
+            // Update existing block references
+            foreach (ObjectId objID in acBlkTblRec.GetBlockReferenceIds(false, true))
+            {
+                BlockReference acBlkRef = acTrans.GetObject(objID, OpenMode.ForWrite) as BlockReference;
+                acBlkRef.RecordGraphicsModified(true);
+            }
+
+            Application.ShowAlertDialog("CircleBlock has been revised.");
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
+    ```
 
 * 애트리뷰트로 작업하기
-  - 애트리뷰트 정의, 애트리뷰트 레퍼런스 생성하기
-  - 애트리뷰트 정의 편집하기
+  - 애트리뷰트 정의 생성하기
+    ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        if (!acBlkTbl.Has("CircleBlockWithAttributes"))
+        {
+            using (BlockTableRecord acBlkTblRec = new BlockTableRecord())
+            {
+                acBlkTblRec.Name = "CircleBlockWithAttributes";
+
+                // Set the insertion point for the block
+                acBlkTblRec.Origin = new Point3d(0, 0, 0);
+
+                // Add a circle to the block
+                using (Circle acCirc = new Circle())
+                {
+                    acCirc.Center = new Point3d(0, 0, 0);
+                    acCirc.Radius = 2;
+
+                    acBlkTblRec.AppendEntity(acCirc);
+
+                    // Add an attribute definition to the block
+                    using (AttributeDefinition acAttDef = new AttributeDefinition())
+                    {
+                        acAttDef.Position = new Point3d(0, 0, 0);
+                        acAttDef.Verifiable = true;
+                        acAttDef.Prompt = "Door #: ";
+                        acAttDef.Tag = "Door#";
+                        acAttDef.TextString = "DXX";
+                        acAttDef.Height = 1;
+                        acAttDef.Justify = AttachmentPoint.MiddleCenter;
+
+                        acBlkTblRec.AppendEntity(acAttDef);
+
+                        acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForWrite);
+                        acBlkTbl.Add(acBlkTblRec);
+                        acTrans.AddNewlyCreatedDBObject(acBlkTblRec, true);
+                    }
+                }
+            }
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
+    ```
+  - 애트리뷰트를 가진 블록 삽입하기
+    ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        ObjectId blkRecId = ObjectId.Null;
+
+        if (!acBlkTbl.Has("CircleBlockWithAttributes"))
+        {
+            using (BlockTableRecord acBlkTblRec = new BlockTableRecord())
+            {
+                acBlkTblRec.Name = "CircleBlockWithAttributes";
+
+                // Set the insertion point for the block
+                acBlkTblRec.Origin = new Point3d(0, 0, 0);
+
+                // Add a circle to the block
+                using (Circle acCirc = new Circle())
+                {
+                    acCirc.Center = new Point3d(0, 0, 0);
+                    acCirc.Radius = 2;
+
+                    acBlkTblRec.AppendEntity(acCirc);
+
+                    // Add an attribute definition to the block
+                    using (AttributeDefinition acAttDef = new AttributeDefinition())
+                    {
+                        acAttDef.Position = new Point3d(0, 0, 0);
+                        acAttDef.Prompt = "Door #: ";
+                        acAttDef.Tag = "Door#";
+                        acAttDef.TextString = "DXX";
+                        acAttDef.Height = 1;
+                        acAttDef.Justify = AttachmentPoint.MiddleCenter;
+                        acBlkTblRec.AppendEntity(acAttDef);
+
+                        acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForWrite);
+                        acBlkTbl.Add(acBlkTblRec);
+                        acTrans.AddNewlyCreatedDBObject(acBlkTblRec, true);
+                    }
+                }
+
+                blkRecId = acBlkTblRec.Id;
+            }
+        }
+        else
+        {
+            blkRecId = acBlkTbl["CircleBlockWithAttributes"];
+        }
+
+        // Insert the block into the current space
+        if (blkRecId != ObjectId.Null)
+        {
+            BlockTableRecord acBlkTblRec;
+            acBlkTblRec = acTrans.GetObject(blkRecId, OpenMode.ForRead) as BlockTableRecord;
+
+            // Create and insert the new block reference
+            using (BlockReference acBlkRef = new BlockReference(new Point3d(2, 2, 0), blkRecId))
+            {
+                BlockTableRecord acCurSpaceBlkTblRec;
+                acCurSpaceBlkTblRec = acTrans.GetObject(acCurDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+
+                acCurSpaceBlkTblRec.AppendEntity(acBlkRef);
+                acTrans.AddNewlyCreatedDBObject(acBlkRef, true);
+
+                // Verify block table record has attribute definitions associated with it
+                if (acBlkTblRec.HasAttributeDefinitions)
+                {
+                    // Add attributes from the block table record
+                    foreach (ObjectId objID in acBlkTblRec)
+                    {
+                        DBObject dbObj = acTrans.GetObject(objID, OpenMode.ForRead) as DBObject;
+
+                        if (dbObj is AttributeDefinition)
+                        {
+                            AttributeDefinition acAtt = dbObj as AttributeDefinition;
+
+                            if (!acAtt.Constant)
+                            {
+                                using (AttributeReference acAttRef = new AttributeReference())
+                                {
+                                    acAttRef.SetAttributeFromBlock(acAtt, acBlkRef.BlockTransform);
+                                    acAttRef.Position = acAtt.Position.TransformBy(acBlkRef.BlockTransform);
+
+                                    acAttRef.TextString = acAtt.TextString;
+
+                                    acBlkRef.AttributeCollection.AppendAttribute(acAttRef);
+
+                                    acTrans.AddNewlyCreatedDBObject(acAttRef, true);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
+    ```
+  - 애트리뷰트 정의 재정의하기
+    ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        ObjectId blkRecId = ObjectId.Null;
+
+        if (!acBlkTbl.Has("CircleBlockWithAttributes"))
+        {
+            using (BlockTableRecord acBlkTblRec = new BlockTableRecord())
+            {
+                acBlkTblRec.Name = "CircleBlockWithAttributes";
+
+                // Set the insertion point for the block
+                acBlkTblRec.Origin = new Point3d(0, 0, 0);
+
+                // Add a circle to the block
+                using (Circle acCirc = new Circle())
+                {
+                    acCirc.Center = new Point3d(0, 0, 0);
+                    acCirc.Radius = 2;
+
+                    acBlkTblRec.AppendEntity(acCirc);
+
+                    // Add an attribute definition to the block
+                    using (AttributeDefinition acAttDef = new AttributeDefinition())
+                    {
+                        acAttDef.Position = new Point3d(0, 0, 0);
+                        acAttDef.Prompt = "Door #: ";
+                        acAttDef.Tag = "Door#";
+                        acAttDef.TextString = "DXX";
+                        acAttDef.Height = 1;
+                        acAttDef.Justify = AttachmentPoint.MiddleCenter;
+                        acBlkTblRec.AppendEntity(acAttDef);
+
+                        acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForWrite);
+                        acBlkTbl.Add(acBlkTblRec);
+                        acTrans.AddNewlyCreatedDBObject(acBlkTblRec, true);
+                    }
+                }
+
+                blkRecId = acBlkTblRec.Id;
+            }
+        }
+        else
+        {
+            blkRecId = acBlkTbl["CircleBlockWithAttributes"];
+        }
+
+        // Create and insert the new block reference
+        if (blkRecId != ObjectId.Null)
+        {
+            BlockTableRecord acBlkTblRec;
+            acBlkTblRec = acTrans.GetObject(blkRecId, OpenMode.ForRead) as BlockTableRecord;
+
+            using (BlockReference acBlkRef = new BlockReference(new Point3d(2, 2, 0), blkRecId))
+            {
+                BlockTableRecord acCurSpaceBlkTblRec;
+                acCurSpaceBlkTblRec = acTrans.GetObject(acCurDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+
+                acCurSpaceBlkTblRec.AppendEntity(acBlkRef);
+                acTrans.AddNewlyCreatedDBObject(acBlkRef, true);
+
+                // Verify block table record has attribute definitions associated with it
+                if (acBlkTblRec.HasAttributeDefinitions)
+                {
+                    // Add attributes from the block table record
+                    foreach (ObjectId objID in acBlkTblRec)
+                    {
+                        DBObject dbObj = acTrans.GetObject(objID, OpenMode.ForRead) as DBObject;
+
+                        if (dbObj is AttributeDefinition)
+                        {
+                            AttributeDefinition acAtt = dbObj as AttributeDefinition;
+
+                            if (!acAtt.Constant)
+                            {
+                                using (AttributeReference acAttRef = new AttributeReference())
+                                {
+                                    acAttRef.SetAttributeFromBlock(acAtt, acBlkRef.BlockTransform);
+                                    acAttRef.Position = acAtt.Position.TransformBy(acBlkRef.BlockTransform);
+
+                                    acAttRef.TextString = acAtt.TextString;
+
+                                    acBlkRef.AttributeCollection.AppendAttribute(acAttRef);
+                                    acTrans.AddNewlyCreatedDBObject(acAttRef, true);
+                                }
+                            }
+
+                            // Change the attribute definition to be displayed as backwards
+                            acTrans.GetObject(objID, OpenMode.ForWrite);
+                            acAtt.IsMirroredInX = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
+    ```
   - 애트리뷰트 정보 추출하기
+    ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        ObjectId blkRecId = ObjectId.Null;
+
+        if (!acBlkTbl.Has("TESTBLOCK"))
+        {
+            using (BlockTableRecord acBlkTblRec = new BlockTableRecord())
+            {
+                acBlkTblRec.Name = "TESTBLOCK";
+
+                // Set the insertion point for the block
+                acBlkTblRec.Origin = new Point3d(0, 0, 0);
+
+                // Add an attribute definition to the block
+                using (AttributeDefinition acAttDef = new AttributeDefinition())
+                {
+                    acAttDef.Position = new Point3d(5, 5, 0);
+                    acAttDef.Prompt = "Attribute Prompt";
+                    acAttDef.Tag = "AttributeTag";
+                    acAttDef.TextString = "Attribute Value";
+                    acAttDef.Height = 1;
+                    acAttDef.Justify = AttachmentPoint.MiddleCenter;
+                    acBlkTblRec.AppendEntity(acAttDef);
+
+                    acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForWrite);
+                    acBlkTbl.Add(acBlkTblRec);
+                    acTrans.AddNewlyCreatedDBObject(acBlkTblRec, true);
+                }
+
+                blkRecId = acBlkTblRec.Id;
+            }
+        }
+        else
+        {
+            blkRecId = acBlkTbl["CircleBlockWithAttributes"];
+        }
+
+        // Create and insert the new block reference
+        if (blkRecId != ObjectId.Null)
+        {
+            BlockTableRecord acBlkTblRec;
+            acBlkTblRec = acTrans.GetObject(blkRecId, OpenMode.ForRead) as BlockTableRecord;
+
+            using (BlockReference acBlkRef = new BlockReference(new Point3d(5, 5, 0), acBlkTblRec.Id))
+            {
+                BlockTableRecord acCurSpaceBlkTblRec;
+                acCurSpaceBlkTblRec = acTrans.GetObject(acCurDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+
+                acCurSpaceBlkTblRec.AppendEntity(acBlkRef);
+                acTrans.AddNewlyCreatedDBObject(acBlkRef, true);
+
+                // Verify block table record has attribute definitions associated with it
+                if (acBlkTblRec.HasAttributeDefinitions)
+                {
+                    // Add attributes from the block table record
+                    foreach (ObjectId objID in acBlkTblRec)
+                    {
+                        DBObject dbObj = acTrans.GetObject(objID, OpenMode.ForRead) as DBObject;
+
+                        if (dbObj is AttributeDefinition)
+                        {
+                            AttributeDefinition acAtt = dbObj as AttributeDefinition;
+
+                            if (!acAtt.Constant)
+                            {
+                                using (AttributeReference acAttRef = new AttributeReference())
+                                {
+                                    acAttRef.SetAttributeFromBlock(acAtt, acBlkRef.BlockTransform);
+                                    acAttRef.Position = acAtt.Position.TransformBy(acBlkRef.BlockTransform);
+
+                                    acAttRef.TextString = acAtt.TextString;
+
+                                    acBlkRef.AttributeCollection.AppendAttribute(acAttRef);
+                                    acTrans.AddNewlyCreatedDBObject(acAttRef, true);
+                                }
+                            }
+                        }
+                    }
+
+                    // Display the tags and values of the attached attributes
+                    string strMessage = "";
+                    AttributeCollection attCol = acBlkRef.AttributeCollection;
+
+                    foreach (ObjectId objID in attCol)
+                    {
+                        DBObject dbObj = acTrans.GetObject(objID, OpenMode.ForRead) as DBObject;
+
+                        AttributeReference acAttRef = dbObj as AttributeReference;
+
+                        strMessage = strMessage + "Tag: " + acAttRef.Tag + "\n" +
+                                        "Value: " + acAttRef.TextString + "\n";
+
+                        // Change the value of the attribute
+                        acAttRef.TextString = "NEW VALUE!";
+                    }
+
+                    Application.ShowAlertDialog("The attributes for blockReference " + acBlkRef.Name + " are:\n" + strMessage);
+
+                    strMessage = "";
+                    foreach (ObjectId objID in attCol)
+                    {
+                        DBObject dbObj = acTrans.GetObject(objID, OpenMode.ForRead) as DBObject;
+
+                        AttributeReference acAttRef = dbObj as AttributeReference;
+
+                        strMessage = strMessage + "Tag: " + acAttRef.Tag + "\n" +
+                                        "Value: " + acAttRef.TextString + "\n";
+                    }
+
+                    Application.ShowAlertDialog("The attributes for blockReference " + acBlkRef.Name + " are:\n" + strMessage);
+                }
+            }
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
+    ```
  
 * 외부 레퍼런스
   - Xrefs 부착하기
+    ```cs
+    ```
   - Xrefs 분리하기
+    ```cs
+    ```
   - Xrefs 재로드하기
+    ```cs
+    ```
   - Xrefs 언로드하기
+    ```cs
+    ```
   - Xrefs 바인딩
+    ```cs
+    ```
   - 블록과 Xrefs 클리핑
+    ```cs
+    ```
   - 확장 데이터 할당 및 가져오기
+    ```cs
+    ```
