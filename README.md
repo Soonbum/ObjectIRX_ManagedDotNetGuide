@@ -4368,45 +4368,528 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 * 치수선 및 공차
   - 선형 치수선 생성
     ```cs
+    // Get the current database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create the rotated dimension
+        using (RotatedDimension acRotDim = new RotatedDimension())
+        {
+            acRotDim.XLine1Point = new Point3d(0, 0, 0);
+            acRotDim.XLine2Point = new Point3d(6, 3, 0);
+            acRotDim.Rotation = 0.707;
+            acRotDim.DimLinePoint = new Point3d(0, 5, 0);
+            acRotDim.DimensionStyle = acCurDb.Dimstyle;
+
+            // Add the new object to Model space and the transaction
+            acBlkTblRec.AppendEntity(acRotDim);
+            acTrans.AddNewlyCreatedDBObject(acRotDim, true);
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 원형 치수선 생성
     ```cs
+    // 원/호 크기, 치수선 텍스트 위치, 시스템 변수의 값에 따라 여러 가지 타입의 원형 치수선 타입이 생성됨
+    // 치수 관련 시스템 변수는 다음과 같다: DIMUPT, DIMTOFL, DIMFIT, DIMTIH, DIMTOH, DIMJUST, DIMTAD
+    
+    // Get the current database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create the radial dimension
+        using (RadialDimension acRadDim = new RadialDimension())
+        {
+            acRadDim.Center = new Point3d(0, 0, 0);
+            acRadDim.ChordPoint = new Point3d(5, 5, 0);
+            acRadDim.LeaderLength = 5;
+            acRadDim.DimensionStyle = acCurDb.Dimstyle;
+
+            // Add the new object to Model space and the transaction
+            acBlkTblRec.AppendEntity(acRadDim);
+            acTrans.AddNewlyCreatedDBObject(acRadDim, true);
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 각도 치수선 생성
     ```cs
+    // 각도 치수선을 생성하기 위한 2가지 오브젝트가 있음
+    // LineAngularDimension2: 2개의 라인에 의해 정의됨
+    // Point3AngularDimension: 3개의 점에 의해 정의됨
+    
+    // Get the current database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create an angular dimension
+        using (LineAngularDimension2 acLinAngDim = new LineAngularDimension2())
+        {
+            acLinAngDim.XLine1Start = new Point3d(0, 5, 0);
+            acLinAngDim.XLine1End = new Point3d(1, 7, 0);
+            acLinAngDim.XLine2Start = new Point3d(0, 5, 0);
+            acLinAngDim.XLine2End = new Point3d(1, 3, 0);
+            acLinAngDim.ArcPoint = new Point3d(3, 5, 0);
+            acLinAngDim.DimensionStyle = acCurDb.Dimstyle;
+
+            // Add the new object to Model space and the transaction
+            acBlkTblRec.AppendEntity(acLinAngDim);
+            acTrans.AddNewlyCreatedDBObject(acLinAngDim, true);
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 조그 원형 치수선 생성
     ```cs
+    // Get the current database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create a large radius dimension
+        using (RadialDimensionLarge acRadDimLrg = new RadialDimensionLarge())
+        {
+            acRadDimLrg.Center = new Point3d(-3, -4, 0);
+            acRadDimLrg.ChordPoint = new Point3d(2, 7, 0);
+            acRadDimLrg.OverrideCenter = new Point3d(0, 2, 0);
+            acRadDimLrg.JogPoint = new Point3d(1, 4.5, 0);
+            acRadDimLrg.JogAngle = 0.707;
+            acRadDimLrg.DimensionStyle = acCurDb.Dimstyle;
+
+            // Add the new object to Model space and the transaction
+            acBlkTblRec.AppendEntity(acRadDimLrg);
+            acTrans.AddNewlyCreatedDBObject(acRadDimLrg, true);
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 호 길이 치수선 생성
     ```cs
+    // Get the current database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create an arc length dimension
+        using (ArcDimension acArcDim = new ArcDimension(new Point3d(4.5, 1.5, 0),
+                                                        new Point3d(8, 4.25, 0),
+                                                        new Point3d(0, 2, 0),
+                                                        new Point3d(5, 7, 0),
+                                                        "<>",
+                                                        acCurDb.Dimstyle))
+        {
+
+            // Add the new object to Model space and the transaction
+            acBlkTblRec.AppendEntity(acArcDim);
+            acTrans.AddNewlyCreatedDBObject(acArcDim, true);
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 세로 치수선 생성
     ```cs
+    // Get the current database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create an ordinate dimension
+        using (OrdinateDimension acOrdDim = new OrdinateDimension())
+        {
+            acOrdDim.UsingXAxis = true;
+            acOrdDim.DefiningPoint = new Point3d(5, 5, 0);
+            acOrdDim.LeaderEndPoint = new Point3d(10, 5, 0);
+            acOrdDim.DimensionStyle = acCurDb.Dimstyle;
+
+            // Add the new object to Model space and the transaction
+            acBlkTblRec.AppendEntity(acOrdDim);
+            acTrans.AddNewlyCreatedDBObject(acOrdDim, true);
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 치수 텍스트 오버라이드
     ```cs
+    // Get the current database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create the aligned dimension
+        using (AlignedDimension acAliDim = new AlignedDimension())
+        {
+            acAliDim.XLine1Point = new Point3d(5, 3, 0);
+            acAliDim.XLine2Point = new Point3d(10, 3, 0);
+            acAliDim.DimLinePoint = new Point3d(7.5, 5, 0);
+            acAliDim.DimensionStyle = acCurDb.Dimstyle;
+
+            // Override the dimension text
+            acAliDim.DimensionText = "The value is <>";
+
+            // Add the new object to Model space and the transaction
+            acBlkTblRec.AppendEntity(acAliDim);
+            acTrans.AddNewlyCreatedDBObject(acAliDim, true);
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 치수선 스타일 생성/변경/복사
     ```cs
+    // Get the current database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for read
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForRead) as BlockTableRecord;
+
+        object acObj = null;
+        foreach (ObjectId acObjId in acBlkTblRec)
+        {
+            // Get the first object in Model space
+            acObj = acTrans.GetObject(acObjId, OpenMode.ForRead);
+
+            break;
+        }
+
+        // Open the DimStyle table for read
+        DimStyleTable acDimStyleTbl;
+        acDimStyleTbl = acTrans.GetObject(acCurDb.DimStyleTableId, OpenMode.ForRead) as DimStyleTable;
+
+        string[] strDimStyleNames = new string[3];
+        strDimStyleNames[0] = "Style 1 copied from a dim";
+        strDimStyleNames[1] = "Style 2 copied from Style 1";
+        strDimStyleNames[2] = "Style 3 copied from the running drawing values";
+
+        int nCnt = 0;
+
+        // Keep a reference of the first dimension style for later
+        DimStyleTableRecord acDimStyleTblRec1 = null;
+
+        // Iterate the array of dimension style names
+        foreach (string strDimStyleName in strDimStyleNames)
+        {
+            DimStyleTableRecord acDimStyleTblRec;
+            DimStyleTableRecord acDimStyleTblRecCopy = null;
+
+            // Check to see if the dimension style exists or not
+            if (acDimStyleTbl.Has(strDimStyleName) == false)
+            {
+                if (acDimStyleTbl.IsWriteEnabled == false) acTrans.GetObject(acCurDb.DimStyleTableId, OpenMode.ForWrite);
+
+                acDimStyleTblRec = new DimStyleTableRecord();
+                acDimStyleTblRec.Name = strDimStyleName;
+
+                acDimStyleTbl.Add(acDimStyleTblRec);
+                acTrans.AddNewlyCreatedDBObject(acDimStyleTblRec, true);
+            }
+            else
+            {
+                acDimStyleTblRec = acTrans.GetObject(acDimStyleTbl[strDimStyleName], OpenMode.ForWrite) as DimStyleTableRecord;
+            }
+
+            // Determine how the new dimension style is populated
+            switch ((int)nCnt)
+            {
+                // Assign the values of the dimension object to the new dimension style
+                case 0:
+                    try
+                    {
+                        // Cast the object to a Dimension
+                        Dimension acDim = acObj as Dimension;
+
+                        // Copy the dimension style data from the dimension and
+                        // set the name of the dimension style as the copied settings
+                        // are unnamed.
+                        acDimStyleTblRecCopy = acDim.GetDimstyleData();
+                        acDimStyleTblRec1 = acDimStyleTblRec;
+                    }
+                    catch
+                    {
+                        // Object was not a dimension
+                    }
+
+                    break;
+
+                // Assign the values of the dimension style to the new dimension style
+                case 1:
+                    acDimStyleTblRecCopy = acDimStyleTblRec1;
+                    break;
+                // Assign the values of the current drawing to the dimension style
+                case 2:
+                    acDimStyleTblRecCopy = acCurDb.GetDimstyleData();
+                    break;
+            }
+
+            // Copy the dimension settings and set the name of the dimension style
+            acDimStyleTblRec.CopyFrom(acDimStyleTblRecCopy);
+            acDimStyleTblRec.Name = strDimStyleName;
+
+            // Dispose of the copied dimension style
+            acDimStyleTblRecCopy.Dispose();
+
+            nCnt = nCnt + 1;
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 치수선 스타일 오버라이드
     ```cs
+    // Get the current database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create the aligned dimension
+        using (AlignedDimension acAliDim = new AlignedDimension())
+        {
+            acAliDim.XLine1Point = new Point3d(0, 5, 0);
+            acAliDim.XLine2Point = new Point3d(5, 5, 0);
+            acAliDim.DimLinePoint = new Point3d(5, 7, 0);
+            acAliDim.DimensionStyle = acCurDb.Dimstyle;
+
+            // Add the new object to Model space and the transaction
+            acBlkTblRec.AppendEntity(acAliDim);
+            acTrans.AddNewlyCreatedDBObject(acAliDim, true);
+
+            // Append a suffix to the dimension text
+            PromptStringOptions pStrOpts = new PromptStringOptions("");
+
+            pStrOpts.Message = "\nEnter a new text suffix for the dimension: ";
+            pStrOpts.AllowSpaces = true;
+            PromptResult pStrRes = acDoc.Editor.GetString(pStrOpts);
+
+            if (pStrRes.Status == PromptStatus.OK)
+            {
+                acAliDim.Suffix = pStrRes.StringResult;
+            }
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 지시선 생성
     ```cs
-    ```
-  - 지시선에 어노테이션 추가
-    ```cs
+    // Get the current database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create the leader
+        using (Leader acLdr = new Leader())
+        {
+            acLdr.AppendVertex(new Point3d(0, 0, 0));
+            acLdr.AppendVertex(new Point3d(4, 4, 0));
+            acLdr.AppendVertex(new Point3d(4, 5, 0));
+            acLdr.HasArrowHead = true;
+
+            // Add the new object to Model space and the transaction
+            acBlkTblRec.AppendEntity(acLdr);
+            acTrans.AddNewlyCreatedDBObject(acLdr, true);
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 지시선 연관성
     ```cs
+    // Get the current database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create the MText annotation
+        using (MText acMText = new MText())
+        {
+            acMText.Contents = "Hello, World.";
+            acMText.Location = new Point3d(5, 5, 0);
+            acMText.Width = 2;
+
+            // Add the new object to Model space and the transaction
+            acBlkTblRec.AppendEntity(acMText);
+            acTrans.AddNewlyCreatedDBObject(acMText, true);
+
+            // Create the leader with annotation
+            using (Leader acLdr = new Leader())
+            {
+                acLdr.AppendVertex(new Point3d(0, 0, 0));
+                acLdr.AppendVertex(new Point3d(4, 4, 0));
+                acLdr.AppendVertex(new Point3d(4, 5, 0));
+                acLdr.HasArrowHead = true;
+
+                // Add the new object to Model space and the transaction
+                acBlkTblRec.AppendEntity(acLdr);
+                acTrans.AddNewlyCreatedDBObject(acLdr, true);
+
+                // Attach the annotation after the leader object is added
+                acLdr.Annotation = acMText.ObjectId;
+                acLdr.EvaluateLeader();
+            }
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
   - 기하학적 공차 생성
     ```cs
-    ```
-  - 기하학적 공차 수정
-    ```cs
+    // Get the current database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Create the Geometric Tolerance (Feature Control Frame)
+        using (FeatureControlFrame acFcf = new FeatureControlFrame())
+        {
+            acFcf.Text = "{\\Fgdt;j}%%v{\\Fgdt;n}0.001%%v%%v%%v%%v";
+            acFcf.Location = new Point3d(5, 5, 0);
+
+            // Add the new object to Model space and the transaction
+            acBlkTblRec.AppendEntity(acFcf);
+            acTrans.AddNewlyCreatedDBObject(acFcf, true);
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+    }
     ```
 
 * 3D 공간
