@@ -6304,22 +6304,385 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 * 외부 레퍼런스
   - Xrefs 부착하기
     ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Create a reference to a DWG file
+        string PathName = "C:\\AutoCAD\\Sample\\Sheet Sets\\Architectural\\Res\\Exterior Elevations.dwg";
+        ObjectId acXrefId = acCurDb.AttachXref(PathName, "Exterior Elevations");
+
+        // If a valid reference is created then continue
+        if (!acXrefId.IsNull)
+        {
+            // Attach the DWG reference to the current space
+            Point3d insPt = new Point3d(1, 1, 0);
+            using (BlockReference acBlkRef = new BlockReference(insPt, acXrefId))
+            {
+                BlockTableRecord acBlkTblRec;
+                acBlkTblRec = acTrans.GetObject(acCurDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+
+                acBlkTblRec.AppendEntity(acBlkRef);
+                acTrans.AddNewlyCreatedDBObject(acBlkRef, true);
+            }
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
     ```
   - Xrefs 분리하기
     ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Create a reference to a DWG file
+        string PathName = "C:\\AutoCAD\\Sample\\Sheet Sets\\Architectural\\Res\\Exterior Elevations.dwg";
+        ObjectId acXrefId = acCurDb.AttachXref(PathName, "Exterior Elevations");
+
+        // If a valid reference is created then continue
+        if (!acXrefId.IsNull)
+        {
+            // Attach the DWG reference to the current space
+            Point3d insPt = new Point3d(1, 1, 0);
+            using (BlockReference acBlkRef = new BlockReference(insPt, acXrefId))
+            {
+                BlockTableRecord acBlkTblRec;
+                acBlkTblRec = acTrans.GetObject(acCurDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+
+                acBlkTblRec.AppendEntity(acBlkRef);
+                acTrans.AddNewlyCreatedDBObject(acBlkRef, true);
+            }
+
+            Application.ShowAlertDialog("The external reference is attached.");
+
+            acCurDb.DetachXref(acXrefId);
+
+            Application.ShowAlertDialog("The external reference is detached.");
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
     ```
   - Xrefs 재로드하기
     ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Create a reference to a DWG file
+        string PathName = "C:\\AutoCAD\\Sample\\Sheet Sets\\Architectural\\Res\\Exterior Elevations.dwg";
+        ObjectId acXrefId = acCurDb.AttachXref(PathName, "Exterior Elevations");
+
+        // If a valid reference is created then continue
+        if (!acXrefId.IsNull)
+        {
+            // Attach the DWG reference to the current space
+            Point3d insPt = new Point3d(1, 1, 0);
+            using (BlockReference acBlkRef = new BlockReference(insPt, acXrefId))
+            {
+                BlockTableRecord acBlkTblRec;
+                acBlkTblRec = acTrans.GetObject(acCurDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+
+                acBlkTblRec.AppendEntity(acBlkRef);
+                acTrans.AddNewlyCreatedDBObject(acBlkRef, true);
+            }
+
+            Application.ShowAlertDialog("The external reference is attached.");
+
+            using (ObjectIdCollection acXrefIdCol = new ObjectIdCollection())
+            {
+                acXrefIdCol.Add(acXrefId);
+
+                acCurDb.ReloadXrefs(acXrefIdCol);
+            }
+
+            Application.ShowAlertDialog("The external reference is reloaded.");
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
     ```
   - Xrefs 언로드하기
     ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Create a reference to a DWG file
+        string PathName = "C:\\AutoCAD\\Sample\\Sheet Sets\\Architectural\\Res\\Exterior Elevations.dwg";
+        ObjectId acXrefId = acCurDb.AttachXref(PathName, "Exterior Elevations");
+
+        // If a valid reference is created then continue
+        if (!acXrefId.IsNull)
+        {
+            // Attach the DWG reference to the current space
+            Point3d insPt = new Point3d(1, 1, 0);
+            using (BlockReference acBlkRef = new BlockReference(insPt, acXrefId))
+            {
+                BlockTableRecord acBlkTblRec;
+                acBlkTblRec = acTrans.GetObject(acCurDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+
+                acBlkTblRec.AppendEntity(acBlkRef);
+                acTrans.AddNewlyCreatedDBObject(acBlkRef, true);
+            }
+
+            Application.ShowAlertDialog("The external reference is attached.");
+
+            using (ObjectIdCollection acXrefIdCol = new ObjectIdCollection())
+            {
+                acXrefIdCol.Add(acXrefId);
+
+                acCurDb.UnloadXrefs(acXrefIdCol);
+            }
+
+            Application.ShowAlertDialog("The external reference is unloaded.");
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
     ```
   - Xrefs 바인딩
     ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Create a reference to a DWG file
+        string PathName = "C:\\AutoCAD\\Sample\\Sheet Sets\\Architectural\\Res\\Exterior Elevations.dwg";
+        ObjectId acXrefId = acCurDb.AttachXref(PathName, "Exterior Elevations");
+
+        // If a valid reference is created then continue
+        if (!acXrefId.IsNull)
+        {
+            // Attach the DWG reference to the current space
+            Point3d insPt = new Point3d(1, 1, 0);
+            using (BlockReference acBlkRef = new BlockReference(insPt, acXrefId))
+            {
+                BlockTableRecord acBlkTblRec;
+                acBlkTblRec = acTrans.GetObject(acCurDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+
+                acBlkTblRec.AppendEntity(acBlkRef);
+                acTrans.AddNewlyCreatedDBObject(acBlkRef, true);
+            }
+
+            Application.ShowAlertDialog("The external reference is attached.");
+
+            using (ObjectIdCollection acXrefIdCol = new ObjectIdCollection())
+            {
+                acXrefIdCol.Add(acXrefId);
+
+                acCurDb.BindXrefs(acXrefIdCol, false);
+            }
+
+            Application.ShowAlertDialog("The external reference is bound.");
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
     ```
   - 블록과 Xrefs 클리핑
     ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Create a reference to a DWG file
+        string PathName = "C:\\AutoCAD\\Sample\\Sheet Sets\\Architectural\\Res\\Exterior Elevations.dwg";
+        ObjectId acXrefId = acCurDb.AttachXref(PathName, "Exterior Elevations");
+
+        // If a valid reference is created then continue
+        if (!acXrefId.IsNull)
+        {
+            // Attach the DWG reference to the current space
+            Point3d insPt = new Point3d(1, 1, 0);
+            using (BlockReference acBlkRef = new BlockReference(insPt, acXrefId))
+            {
+                BlockTableRecord acBlkTblRec;
+                acBlkTblRec = acTrans.GetObject(acCurDb.CurrentSpaceId, OpenMode.ForWrite) as BlockTableRecord;
+
+                acBlkTblRec.AppendEntity(acBlkRef);
+                acTrans.AddNewlyCreatedDBObject(acBlkRef, true);
+
+                Application.ShowAlertDialog("The external reference is attached.");
+
+                Matrix3d mat = acBlkRef.BlockTransform;
+                mat.Inverse();
+
+                Point2dCollection ptCol = new Point2dCollection();
+
+                // Define the first corner of the clipping boundary
+                Point3d pt3d = new Point3d(-330, 400, 0);
+                pt3d.TransformBy(mat);
+                ptCol.Add(new Point2d(pt3d.X, pt3d.Y));
+
+                // Define the second corner of the clipping boundary
+                pt3d = new Point3d(1320, 1120, 0);
+                pt3d.TransformBy(mat);
+                ptCol.Add(new Point2d(pt3d.X, pt3d.Y));
+
+                // Define the normal and elevation for the clipping boundary 
+                Vector3d normal;
+                double elev = 0;
+
+                if (acCurDb.TileMode == true)
+                {
+                    normal = acCurDb.Ucsxdir.CrossProduct(acCurDb.Ucsydir);
+                    elev = acCurDb.Elevation;
+                }
+                else
+                {
+                    normal = acCurDb.Pucsxdir.CrossProduct(acCurDb.Pucsydir);
+                    elev = acCurDb.Pelevation;
+                }
+
+                // Set the clipping boundary and enable it
+                using (Autodesk.AutoCAD.DatabaseServices.Filters.SpatialFilter filter = 
+                    new Autodesk.AutoCAD.DatabaseServices.Filters.SpatialFilter())
+                {
+                    Autodesk.AutoCAD.DatabaseServices.Filters.SpatialFilterDefinition filterDef = 
+                        new Autodesk.AutoCAD.DatabaseServices.Filters.SpatialFilterDefinition(ptCol, normal, elev, 0, 0, true);
+                    filter.Definition = filterDef;
+
+                    // Define the name of the extension dictionary and entry name
+                    string dictName = "ACAD_FILTER";
+                    string spName = "SPATIAL";
+
+                    // Check to see if the Extension Dictionary exists, if not create it
+                    if (acBlkRef.ExtensionDictionary.IsNull)
+                    {
+                        acBlkRef.CreateExtensionDictionary();
+                    }
+
+                    // Open the Extension Dictionary for write
+                    DBDictionary extDict = acTrans.GetObject(acBlkRef.ExtensionDictionary, OpenMode.ForWrite) as DBDictionary;
+
+                    // Check to see if the dictionary for clipped boundaries exists, 
+                    // and add the spatial filter to the dictionary
+                    if (extDict.Contains(dictName))
+                    {
+                        DBDictionary filterDict = acTrans.GetObject(extDict.GetAt(dictName), OpenMode.ForWrite) as DBDictionary;
+
+                        if (filterDict.Contains(spName))
+                        {
+                            filterDict.Remove(spName);
+                        }
+
+                        filterDict.SetAt(spName, filter);
+                    }
+                    else
+                    {
+                        using (DBDictionary filterDict = new DBDictionary())
+                        {
+                            extDict.SetAt(dictName, filterDict);
+
+                            acTrans.AddNewlyCreatedDBObject(filterDict, true);
+                            filterDict.SetAt(spName, filter);
+                        }
+                    }
+
+                    // Append the spatial filter to the drawing
+                    acTrans.AddNewlyCreatedDBObject(filter, true);
+                }
+            }
+
+            Application.ShowAlertDialog("The external reference is clipped.");
+        }
+
+        // Save the new objects to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
     ```
   - 확장 데이터 할당 및 가져오기
     ```cs
+    // Get the current database and start a transaction
+    Database acCurDb;
+    acCurDb = Application.DocumentManager.MdiActiveDocument.Database;
+
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+    string appName = "MY_APP";
+    string xdataStr = "This is some xdata";
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Request objects to be selected in the drawing area
+        PromptSelectionResult acSSPrompt = acDoc.Editor.GetSelection();
+
+        // If the prompt status is OK, objects were selected
+        if (acSSPrompt.Status == PromptStatus.OK)
+        {
+            // Open the Registered Applications table for read
+            RegAppTable acRegAppTbl;
+            acRegAppTbl = acTrans.GetObject(acCurDb.RegAppTableId, OpenMode.ForRead) as RegAppTable;
+
+            // Check to see if the Registered Applications table record for the custom app exists
+            if (acRegAppTbl.Has(appName) == false)
+            {
+                using (RegAppTableRecord acRegAppTblRec = new RegAppTableRecord())
+                {
+                    acRegAppTblRec.Name = appName;
+
+                    acTrans.GetObject(acCurDb.RegAppTableId, OpenMode.ForWrite);
+                    acRegAppTbl.Add(acRegAppTblRec);
+                    acTrans.AddNewlyCreatedDBObject(acRegAppTblRec, true);
+                }
+            }
+
+            // Define the Xdata to add to each selected object
+            using (ResultBuffer rb = new ResultBuffer())
+            {
+                rb.Add(new TypedValue((int)DxfCode.ExtendedDataRegAppName, appName));
+                rb.Add(new TypedValue((int)DxfCode.ExtendedDataAsciiString, xdataStr));
+
+                SelectionSet acSSet = acSSPrompt.Value;
+
+                // Step through the objects in the selection set
+                foreach (SelectedObject acSSObj in acSSet)
+                {
+                    // Open the selected object for write
+                    Entity acEnt = acTrans.GetObject(acSSObj.ObjectId,
+                                                        OpenMode.ForWrite) as Entity;
+
+                    // Append the extended data to each object
+                    acEnt.XData = rb;
+                }
+            }
+        }
+
+        // Save the new object to the database
+        acTrans.Commit();
+
+        // Dispose of the transaction
+    }
     ```
+
