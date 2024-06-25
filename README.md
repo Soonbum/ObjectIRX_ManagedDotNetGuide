@@ -7312,18 +7312,256 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 #### 이벤트
   - Application 이벤트 처리하기
     ```cs
+    // 이벤트 종류는 다음과 같다.
+    // BeginCustomizationMode: Triggered just before AutoCAD enters customization mode.
+    // BeginDoubleClick: Triggered when the mouse button is double clicked.
+    // BeginQuit: Triggered just before an AutoCAD session ends.
+    // DisplayingCustomizeDialog: Triggered just before the Customize dialog box is displayed.
+    // DisplayingDraftingSettingsDialog: Triggered just before the Drafting Settings dialog box is displayed.
+    // DisplayingOptionDialog: Triggered just before the Options dialog box is displayed.
+    // EndCustomizationMode: Triggered when AutoCAD exits customization mode.
+    // EnterModal: Triggered just before a modal dialog box is displayed.
+    // Idle: Triggered when AutoCAD text.
+    // LeaveModal: Triggered when a modal dialog box is closed.
+    // PreTranslateMessage: Triggered just before a message is translated by AutoCAD.
+    // QuitAborted: Triggered when an attempt to shutdown AutoCAD is aborted.
+    // QuitWillStart: Triggered after the BeginQuit event and before shutdown begins.
+    // SystemVariableChanged: Triggered when an attempt to change a system variable is made.
+    // SystemVariableChanging: Triggered just before an attempt is made at changing a system variable.
+    
+    [CommandMethod("AddAppEvent")]
+    public void AddAppEvent()
+    {
+        Application.SystemVariableChanged += new Autodesk.AutoCAD.ApplicationServices.SystemVariableChangedEventHandler(appSysVarChanged);
+    }
+
+    [CommandMethod("RemoveAppEvent")]
+    public void RemoveAppEvent()
+    {
+        Application.SystemVariableChanged -= new Autodesk.AutoCAD.ApplicationServices.SystemVariableChangedEventHandler(appSysVarChanged);
+    }
+ 
+    public void appSysVarChanged(object senderObj, Autodesk.AutoCAD.ApplicationServices.SystemVariableChangedEventArgs sysVarChEvtArgs)
+    {
+        object oVal = Application.GetSystemVariable(sysVarChEvtArgs.Name);
+ 
+        // Display a message box with the system variable name and the new value
+        Application.ShowAlertDialog(sysVarChEvtArgs.Name + " was changed." + "\nNew value: " + oVal.ToString());
+    }
     ```
   - DocumentCollection 이벤트 처리하기
     ```cs
+    // 이벤트 종류는 다음과 같다.
+    // DocumentActivated: Triggered when a document window is activated.
+    // DocumentActivationChanged: Triggered after the active document window is deactivated or destroyed.
+    // DocumentBecameCurrent: Triggered when a document window is set current and is different from the previous active document window.
+    // DocumentCreated: Triggered after a document window is created. Occurs after a new drawing is created or an existing drawing is opened.
+    // DocumentCreateStarted: Triggered just before a document window is created. Occurs before a new drawing is created or an existing drawing is opened.
+    // DocumentCreationCanceled: Triggered when a request to create a new drawing or to open an existing drawing is cancelled.
+    // DocumentDestroyed: Triggered before a document window is destroyed and its associated database object is deleted.
+    // DocumentLockModeChanged: Triggered after the lock mode of a document has changed.
+    // DocumentLockModeChangeVetoed: Triggered after the lock mode change is vetoed.
+    // DocumentLockModeWillChange: Triggered before the lock mode of a document is changed.
+    // DocumentToBeActivated: Triggered when a document is about to be activated.
+    // DocumentToBeDeactivated: Triggered when a document is about to be deactivated.
+    // DocumentToBeDestroyed: Triggered when a document is about to be destroyed.
+    
+    [CommandMethod("AddDocColEvent")]
+    public void AddDocColEvent()
+    {
+        Application.DocumentManager.DocumentActivated += new DocumentCollectionEventHandler(docColDocAct);
+    }
+
+    [CommandMethod("RemoveDocColEvent")]
+    public void RemoveDocColEvent()
+    {
+        Application.DocumentManager.DocumentActivated -= new DocumentCollectionEventHandler(docColDocAct);
+    }
+
+    public void docColDocAct(object senderObj, DocumentCollectionEventArgs docColDocActEvtArgs)
+    {
+        Application.ShowAlertDialog(docColDocActEvtArgs.Document.Name + " was activated.");
+    }
     ```
   - Document 이벤트 처리하기
     ```cs
+    // 이벤트 종류는 다음과 같다.
+    // BeginDocumentClose: Triggered just after a request is received to close a drawing.
+    // BeginDwgOpen: Triggered when a drawing is about to be opened.
+    // CloseAborted: Triggered when an attempt to close a drawing is aborted.
+    // CloseWillStart: Triggered after the BeginDocumentClose event and before closing the drawing begins.
+    // CommandCancelled: Triggered when a command is cancelled before it completes.
+    // CommandEnded: Triggered immediately after a command completes.
+    // CommandFailed: Triggered when a command fails to complete and is not cancelled.
+    // CommandWillStart: Triggered immediately after a command is issued, but before it completes.
+    // EndDwgOpen: Triggered when a drawing has been opened.
+    // ImpliedSelectionChanged: Triggered when the current pickfirst selection set changes.
+    // LayoutSwitched: Triggered after a layout has been set current.
+    // LayoutSwitching: Triggered after a layout is being set current.
+    // LispCancelled: Triggered when the evaluation of a LISP expression is canceled.
+    // LispEnded: Triggered upon completion of evaluating a LISP expression.
+    // LispWillStart: Triggered immediately after AutoCAD receives a request to evaluate a LISP expression.
+    // UnknownCommand: Triggered immediately when an unknown command is entered at the Command prompt.
+    // ViewChanged: Triggered after the view of a drawing has changed.
+    
+    [CommandMethod("AddDocEvent")]
+    public void AddDocEvent()
+    {
+        // Get the current document
+        Document acDoc = Application.DocumentManager.MdiActiveDocument;
+ 
+        acDoc.BeginDocumentClose += new DocumentBeginCloseEventHandler(docBeginDocClose);
+    }
+ 
+    [CommandMethod("RemoveDocEvent")]
+    public void RemoveDocEvent()
+    {
+        // Get the current document
+        Document acDoc = Application.DocumentManager.MdiActiveDocument;
+ 
+        acDoc.BeginDocumentClose -= new DocumentBeginCloseEventHandler(docBeginDocClose);
+    }
+ 
+    public void docBeginDocClose(object senderObj, DocumentBeginCloseEventArgs docBegClsEvtArgs)
+    {
+            // Display a message box prompting to continue closing the document
+            if (System.Windows.Forms.MessageBox.Show(
+                       "The document is about to be closed." +
+                       "\nDo you want to continue?",
+                       "Close Document",
+                       System.Windows.Forms.MessageBoxButtons.YesNo) ==
+                       System.Windows.Forms.DialogResult.No)
+        {
+            docBegClsEvtArgs.Veto();
+        }
+    }
     ```
   - Object 이벤트 처리하기
     ```cs
+    // 이벤트 종류는 다음과 같다.
+    // Cancelled: Triggered when the opening of the object is cancelled text.
+    // Copied: Triggered after the object is cloned.
+    // Erased: Triggered when the object is flagged to be erased or is unerased.
+    // Goodbye: Triggered when the object is about to be deleted from memory because its associated database is being destroyed.
+    // Modified: Triggered when the object is modified.
+    // ModifiedXData: Triggered when the XData attached to the object is modified.
+    // ModifyUndone: Triggered when previous changes to the object are being undone.
+    // ObjectClosed: Triggered when the object is closed.
+    // OpenedForModify: Triggered before the object is modified.
+    // Reappended: Triggered when the object is removed from the database after an Undo operation and then re-appended with a Redo operation.
+    // SubObjectModified: Triggered when a subobject of the object is modified.
+    // Unappended: Triggered when the object is removed from the database after an Undo operation. The following are some of the events used to respond to object changes at the Database level:
+    // ObjectAppended: Triggered when an object is added to a database.
+    // ObjectErased: Triggered when an object is erased or unerased from a database.
+    // ObjectModified: Triggered when an object has been modified.
+    // ObjectOpenedForModify: Triggered before an object is modified.
+    // ObjectReappended: Triggered when an object is removed from a database after an Undo operation and then re-appended with a Redo operation.
+    // ObjectUnappended: Triggered when an object is removed from a database after an Undo operation.
+    
+    // Global variable for polyline object
+    Polyline acPoly = null;
+ 
+    [CommandMethod("AddPlObjEvent")]
+    public void AddPlObjEvent()
+    {
+        // Get the current document and database, and start a transaction
+        Document acDoc = Application.DocumentManager.MdiActiveDocument;
+        Database acCurDb = acDoc.Database;
+ 
+        using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+        {
+            // Open the Block table record for read
+            BlockTable acBlkTbl;
+            acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+ 
+            // Open the Block table record Model space for write
+            BlockTableRecord acBlkTblRec;
+            acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+ 
+            // Create a closed polyline
+            acPoly = new Polyline();
+            acPoly.AddVertexAt(0, new Point2d(1, 1), 0, 0, 0);
+            acPoly.AddVertexAt(1, new Point2d(1, 2), 0, 0, 0);
+            acPoly.AddVertexAt(2, new Point2d(2, 2), 0, 0, 0);
+            acPoly.AddVertexAt(3, new Point2d(3, 3), 0, 0, 0);
+            acPoly.AddVertexAt(4, new Point2d(3, 2), 0, 0, 0);
+            acPoly.Closed = true;
+ 
+            // Add the new object to the block table record and the transaction
+            acBlkTblRec.AppendEntity(acPoly);
+            acTrans.AddNewlyCreatedDBObject(acPoly, true);
+ 
+            acPoly.Modified += new EventHandler(acPolyMod);
+ 
+            // Save the new object to the database
+            acTrans.Commit();
+        }
+    }
+ 
+    [CommandMethod("RemovePlObjEvent")]
+    public void RemovePlObjEvent()
+    {
+        if (acPoly != null)
+        {
+            // Get the current document and database, and start a transaction
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+ 
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+                // Open the polyline for read
+                acPoly = acTrans.GetObject(acPoly.ObjectId, OpenMode.ForRead) as Polyline;
+ 
+                if (acPoly.IsWriteEnabled == false)
+                {
+                    acTrans.GetObject(acPoly.ObjectId, OpenMode.ForWrite);
+                }
+ 
+                acPoly.Modified -= new EventHandler(acPolyMod);
+                acPoly = null;
+            }
+        }
+    }
+ 
+    public void acPolyMod(object senderObj, EventArgs evtArgs)
+    {
+        Application.ShowAlertDialog("The area of " + acPoly.ToString() + " is: " + acPoly.Area);
+    }
     ```
   - COM 기반 이벤트 등록하기
     ```cs
+    // Global variable for AddCOMEvent and RemoveCOMEvent commands
+    AcadApplication acAppCom;
+ 
+    [CommandMethod("AddCOMEvent")]
+    public void AddCOMEvent()
+    {
+        // Set the global variable to hold a reference to the application and
+        // register the BeginFileDrop COM event
+        acAppCom = Application.AcadApplication as AcadApplication;
+        acAppCom.BeginFileDrop += new _DAcadApplicationEvents_BeginFileDropEventHandler(appComBeginFileDrop);
+    }
+ 
+    [CommandMethod("RemoveCOMEvent")]
+    public void RemoveCOMEvent()
+    {
+        // Unregister the COM event handle
+        acAppCom.BeginFileDrop -= new _DAcadApplicationEvents_BeginFileDropEventHandler(appComBeginFileDrop);
+        acAppCom = null;
+    }
+ 
+    public void appComBeginFileDrop(string strFileName, ref bool bCancel)
+    {
+        // Display a message box prompting to continue inserting the DWG file
+        if (System.Windows.Forms.MessageBox.Show("AutoCAD is about to load " + strFileName +
+                                       "\nDo you want to continue loading this file?",
+                                       "DWG File Dropped",
+                                       System.Windows.Forms.MessageBoxButtons.YesNo) == 
+                                       System.Windows.Forms.DialogResult.No)
+        {
+            bCancel = true;
+        }
+    }
     ```
 
 #### 개발
