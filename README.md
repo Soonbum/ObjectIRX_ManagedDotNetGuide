@@ -163,7 +163,7 @@ public static void CommandName()
 
 ### 기능 구현 예시
 
-* 레이어 관리
+#### 레이어 관리
   - 레이어 추가
     ```cs
     // 현재 데이터베이스의 레이어 테이블 반환
@@ -252,7 +252,7 @@ public static void CommandName()
     }
     ```
 
-* 도큐먼트 창 업데이트
+#### 도큐먼트 창 업데이트
 
 ```cs
 // Redraw the drawing
@@ -263,7 +263,7 @@ Application.DocumentManager.MdiActiveDocument.Editor.UpdateScreen();
 Application.DocumentManager.MdiActiveDocument.Editor.Regen();
 ```
 
-* 사각형 영역 마우스로 입력 받고 이미지 파일로 플롯(인쇄)하기
+#### 사각형 영역 마우스로 입력 받고 이미지 파일로 플롯(인쇄)하기
 
 ```cs
 Document doc = IntelliCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
@@ -413,7 +413,7 @@ using (Transaction tr = db.TransactionManager.StartTransaction())
 }
 ```
 
-* 레이어 별로 이미지 Clipping해서 플롯(인쇄)하기
+#### 레이어 별로 이미지 Clipping해서 플롯(인쇄)하기
 
 ```cs
 private async void ImageSaveButton_Click(object sender, EventArgs e)
@@ -715,7 +715,7 @@ static bool IsWhiteImage(Mat image)
 }
 ```
 
-* 리본 메뉴 생성하기
+#### 리본 메뉴 생성하기
 
 ```cs
 public class CuiManager : IDisposable
@@ -1052,7 +1052,7 @@ public class CuiManager : IDisposable
 }
 ```
 
-* 소켓 전송 예제 (클라이언트)
+#### 소켓 전송 예제 (클라이언트)
 
 ![image](https://github.com/Soonbum/ObjectIRX_ManagedDotNetGuide/assets/16474083/7a021fca-4fac-4259-8155-812223d0224f)
 
@@ -1176,7 +1176,7 @@ public partial class ClientForm : DevExpress.XtraEditors.XtraForm
 }
 ```
 
-* SFTP 전송 예제 (클라이언트)
+#### SFTP 전송 예제 (클라이언트)
 
 ![image](https://github.com/Soonbum/ObjectIRX_ManagedDotNetGuide/assets/16474083/9a17bbb6-2ebc-484b-86c0-355727c6b0d4)
 
@@ -1325,7 +1325,7 @@ public partial class ClientForm : DevExpress.XtraEditors.XtraForm
 }
 ```
 
-* 소켓 전송 예제 (서버)
+#### 소켓 전송 예제 (서버)
 
 ![image](https://github.com/Soonbum/ObjectIRX_ManagedDotNetGuide/assets/16474083/4716bc32-9fa2-4e16-af0e-6980c3be6d6f)
 
@@ -1480,7 +1480,7 @@ public partial class ServerForm : DevExpress.XtraEditors.XtraForm
 }
 ```
 
-* 시스템 변수 설정
+#### 시스템 변수 설정
 
 ```cs
 // Get the current value from a system variable
@@ -1490,7 +1490,7 @@ int nMaxSort = System.Convert.ToInt32(Application.GetSystemVariable("MAXSORT"));
 Application.SetSystemVariable("MAXSORT", 100);
 ```
 
-* 프롬프트에서 문자열 입력 받기
+#### 프롬프트에서 문자열 입력 받기
 
 ```cs
 Document acDoc = Application.DocumentManager.MdiActiveDocument;
@@ -1502,7 +1502,7 @@ PromptResult pStrRes = acDoc.Editor.GetString(pStrOpts);    // 사용자에게 �
 Application.ShowAlertDialog("The name entered was: " + pStrRes.StringResult);
 ```
 
-* 프롬프트에서 키워드 입력 받기
+#### 프롬프트에서 키워드 입력 받기
 
 ```cs
 Document acDoc = Application.DocumentManager.MdiActiveDocument;
@@ -1519,7 +1519,7 @@ PromptResult pKeyRes = acDoc.Editor.GetKeywords(pKeyOpts);    // 사용자에게
 Application.ShowAlertDialog("Entered keyword: " + pKeyRes.StringResult);
 ```
 
-* 프롬프트에서 정수, 키워드 혼합 입력 받기
+#### 프롬프트에서 정수, 키워드 혼합 입력 받기
 
 ```cs
 Document acDoc = Application.DocumentManager.MdiActiveDocument;
@@ -1552,7 +1552,7 @@ else
 }
 ```
 
-* 프롬프트에서 명령어 호출하기
+#### 프롬프트에서 명령어 호출하기
 
 ```cs
 Document acDoc = Application.DocumentManager.MdiActiveDocument;
@@ -1562,7 +1562,7 @@ acDoc.SendStringToExecute("._circle 2,2,0 4 ", true, false, false);    // 중심
 acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든 것이 보이도록 Zoom
 ```
 
-* 오브젝트 그리기
+#### 오브젝트 그리기
   - Line 오브젝트
     ```cs
     // Get the current document and database
@@ -1811,7 +1811,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-* 영역 (Regions) 생성
+#### 영역 (Regions) 생성
   - ```cs
     // Get the current document and database
     Document acDoc = Application.DocumentManager.MdiActiveDocument;
@@ -1923,7 +1923,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-* 해치 (Hatches) 생성
+#### 해치 (Hatches) 생성
   - ```cs
     // Get the current document and database
     Document acDoc = Application.DocumentManager.MdiActiveDocument;
@@ -1975,7 +1975,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-* 선택(Selection)하기
+#### 선택(Selection)하기
   - PickFirst 선택 세트 가져오기
     ```cs
     // 주의사항
@@ -2455,7 +2455,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-* 오브젝트 편집하기
+#### 오브젝트 편집하기
   - 비참조 오브젝트 제거하기
     ```cs
     // Purge 메서드는 ObjectIdCollection 또는 ObjectIdGraph 오브젝트 형태에서 여러 개의 오브젝트를 제거할 수 있음
@@ -3219,7 +3219,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-* 프로퍼티 (레이어) 조작하기
+#### 프로퍼티 (레이어) 조작하기
   - 레이어 이름 나열하기
     ```cs
     // Get the current document and database
@@ -3665,7 +3665,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-* 프로퍼티 (컬러) 조작하기
+#### 프로퍼티 (컬러) 조작하기
   - 오브젝트에 컬러 값 할당하기
     ```cs
     // Get the current document and database
@@ -3740,7 +3740,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     Application.SetSystemVariable("CECOLOR", "1");
     ```
 
-* 프로퍼티 (라인타입) 조작하기
+#### 프로퍼티 (라인타입) 조작하기
   - 라인타입 불러오기
     ```cs
     // Get the current document and database
@@ -3931,7 +3931,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-* 레이어 상태 저장/복구
+#### 레이어 상태 저장/복구
   - 도면에 저장된 레이어 상태 리스팅
     ```cs
     // Get the current document and database
@@ -4066,7 +4066,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-* 도면에 텍스트 추가하기
+#### 도면에 텍스트 추가하기
   - 멀티라인 텍스트 추가하기
     ```cs
     // Get the current document and database
@@ -4365,7 +4365,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-* 치수선 및 공차
+#### 치수선 및 공차
   - 선형 치수선 생성
     ```cs
     // Get the current database
@@ -4892,7 +4892,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-* 3D 공간
+#### 3D 공간
   - 3D 좌표 지정하기
     ```cs
     // Get the current document and database, and start a transaction
@@ -5622,7 +5622,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-* 블록으로 작업하기
+#### 블록으로 작업하기
   - 블록 정의하기
     ```cs
     // Get the current database and start a transaction
@@ -5893,7 +5893,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
 
-* 애트리뷰트로 작업하기
+#### 애트리뷰트로 작업하기
   - 애트리뷰트 정의 생성하기
     ```cs
     // Get the current database and start a transaction
@@ -6301,7 +6301,7 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
     }
     ```
  
-* 외부 레퍼런스
+#### 외부 레퍼런스
   - Xrefs 부착하기
     ```cs
     // Get the current database and start a transaction
