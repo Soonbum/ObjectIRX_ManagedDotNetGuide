@@ -6689,42 +6689,624 @@ acDoc.SendStringToExecute("._zoom _all ", true, false, false);         // 모든
 #### 레이아웃과 플롯
   - 현재 도면에 레이아웃 목록 나열하기
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Get the layout dictionary of the current database
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        DBDictionary lays = 
+            acTrans.GetObject(acCurDb.LayoutDictionaryId, OpenMode.ForRead) as DBDictionary;
+
+        acDoc.Editor.WriteMessage("\nLayouts:");
+
+        // Step through and list each named layout and Model
+        foreach (DBDictionaryEntry item in lays)
+        {
+            acDoc.Editor.WriteMessage("\n  " + item.Key);
+        }
+
+        // Abort the changes to the database
+        acTrans.Abort();
+    }
     ```
   - 현재 도면에 레이아웃 만들기
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Get the layout and plot settings of the named pagesetup
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Reference the Layout Manager
+        LayoutManager acLayoutMgr = LayoutManager.Current;
+
+        // Create the new layout with default settings
+        ObjectId objID = acLayoutMgr.CreateLayout("newLayout");
+
+        // Open the layout
+        Layout acLayout = acTrans.GetObject(objID, OpenMode.ForRead) as Layout;
+
+        // Set the layout current if it is not already
+        if (acLayout.TabSelected == false)
+        {
+            acLayoutMgr.CurrentLayout = acLayout.LayoutName;
+        }
+
+        // Output some information related to the layout object
+        acDoc.Editor.WriteMessage("\nTab Order: " + acLayout.TabOrder +
+                                  "\nTab Selected: " + acLayout.TabSelected +
+                                  "\nBlock Table Record ID: " +
+                                  acLayout.BlockTableRecordId.ToString());
+
+        // Save the changes made
+        acTrans.Commit();
+    }
     ```
   - 출력 장치의 종이 크기 목록 나열하기
     ```cs
+    // Get the current document and database, and start a transaction
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+    using(PlotSettings plSet = new PlotSettings(true))
+    {
+        PlotSettingsValidator acPlSetVdr = PlotSettingsValidator.Current;
+
+        // Set the Plotter and page size
+        acPlSetVdr.SetPlotConfigurationName(plSet, "DWF6 ePlot.pc3", "ANSI_A_(8.50_x_11.00_Inches)");
+
+        acDoc.Editor.WriteMessage("\nCanonical and Local media names: ");
+
+        int cnt = 0;
+
+        foreach (string mediaName in acPlSetVdr.GetCanonicalMediaNameList(plSet))
+        {
+            // Output the names of the available media for the specified device
+            acDoc.Editor.WriteMessage("\n  " + mediaName + " | " + acPlSetVdr.GetLocaleMediaName(plSet, cnt));
+
+            cnt = cnt + 1;
+        }
+    }
     ```
   - 출력 장치 목록 나열하기
     ```cs
+    // Get the current document and database, and start a transaction
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+    acDoc.Editor.WriteMessage("\nPlot devices: ");
+
+    foreach (string plotDevice in PlotSettingsValidator.Current.GetPlotDeviceList())
+    {
+        // Output the names of the available plotter devices
+        acDoc.Editor.WriteMessage("\n  " + plotDevice);
+    }
     ```
   - 레이아웃 설정
     ```cs
+    // Get the current document and database, and start a transaction
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Reference the Layout Manager
+        LayoutManager acLayoutMgr = LayoutManager.Current;
+
+        // Get the current layout and output its name in the Command Line window
+        Layout acLayout = acTrans.GetObject(acLayoutMgr.GetLayoutId(acLayoutMgr.CurrentLayout), OpenMode.ForRead) as Layout;
+
+        // Output the name of the current layout and its device
+        acDoc.Editor.WriteMessage("\nCurrent layout: " + acLayout.LayoutName);
+
+        acDoc.Editor.WriteMessage("\nCurrent device name: " + acLayout.PlotConfigurationName);
+
+        // Get a copy of the PlotSettings from the layout
+        using (PlotSettings acPlSet = new PlotSettings(acLayout.ModelType))
+        {
+            acPlSet.CopyFrom(acLayout);
+
+            // Update the PlotConfigurationName property of the PlotSettings object
+            PlotSettingsValidator acPlSetVdr = PlotSettingsValidator.Current;
+            acPlSetVdr.SetPlotConfigurationName(acPlSet, "DWG To PDF.pc3", "ANSI_B_(11.00_x_17.00_Inches)");
+
+            // Zoom to show the whole paper
+            acPlSetVdr.SetZoomToPaperOnUpdate(acPlSet, true);
+
+            // Update the layout
+            acTrans.GetObject(acLayoutMgr.GetLayoutId(acLayoutMgr.CurrentLayout), OpenMode.ForWrite);
+            acLayout.CopyFrom(acPlSet);
+        }
+
+        // Output the name of the new device assigned to the layout
+        acDoc.Editor.WriteMessage("\nNew device name: " + acLayout.PlotConfigurationName);
+
+        // Save the new objects to the database
+        acTrans.Commit();
+    }
+
+    // Update the display
+    acDoc.Editor.Regen();
     ```
   - 모델/종이 공간 전환하기
     ```cs
+    // 시스템 변수를 통해 상태를 확인할 수 있음
+    // (TILEMODE == 0) && (CVPORT != 2) : Layout other than Model is active and you are working in Paper space.
+    // (TILEMODE == 0) && (CVPORT == 2) : Layout other than Model is active and you are working in a floating viewport.
+    // (TILEMODE == 1) && (CVPORT == Any value) : Model layout is active.
+    
+    // Get the current document
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+ 
+    // Get the current values of CVPORT and TILEMODE
+    object oCvports = Application.GetSystemVariable("CVPORT");
+    object oTilemode = Application.GetSystemVariable("TILEMODE");
+ 
+    // Check to see if the Model layout is active, TILEMODE is 1 when
+    // the Model layout is active
+    if (System.Convert.ToInt16(oTilemode) == 0)
+    {
+        // Check to see if Model space is active in a viewport,
+        // CVPORT is 2 if Model space is active 
+        if (System.Convert.ToInt16(oCvports) == 2)
+        {
+            acDoc.Editor.SwitchToPaperSpace();
+        }
+        else
+        {
+            acDoc.Editor.SwitchToModelSpace();
+        }
+    }
+    else
+    {
+        // Switch to the previous Paper space layout
+        Application.SetSystemVariable("TILEMODE", 0);
+    }
     ```
   - 종이 공간 뷰포트 만들기
     ```cs
+    [DllImport("acad.exe", CallingConvention = CallingConvention.Cdecl,
+     EntryPoint = "?acedSetCurrentVPort@@YA?AW4ErrorStatus@Acad@@PBVAcDbViewport@@@Z")]
+    extern static private int acedSetCurrentVPort(IntPtr AcDbVport);
+ 
+    [CommandMethod("CreateFloatingViewport")]
+    public static void CreateFloatingViewport()
+    {
+        // Get the current document and database, and start a transaction
+        Document acDoc = Application.DocumentManager.MdiActiveDocument;
+        Database acCurDb = acDoc.Database;
+
+        using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+        {
+            // Open the Block table for read
+            BlockTable acBlkTbl;
+            acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+            // Open the Block table record Paper space for write
+            BlockTableRecord acBlkTblRec;
+            acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+            // Switch to the previous Paper space layout
+            Application.SetSystemVariable("TILEMODE", 0);
+            acDoc.Editor.SwitchToPaperSpace();
+
+            // Create a Viewport
+            using (Viewport acVport = new Viewport())
+            {
+                acVport.CenterPoint = new Point3d(3.25, 3, 0);
+                acVport.Width = 6;
+                acVport.Height = 5;
+
+                // Add the new object to the block table record and the transaction
+                acBlkTblRec.AppendEntity(acVport);
+                acTrans.AddNewlyCreatedDBObject(acVport, true);
+
+                // Change the view direction
+                acVport.ViewDirection = new Vector3d(1, 1, 1);
+
+                // Enable the viewport
+                acVport.On = true;
+
+                // Activate model space in the viewport
+                acDoc.Editor.SwitchToModelSpace();
+
+                // Set the new viewport current via an imported ObjectARX function
+                acedSetCurrentVPort(acVport.UnmanagedObject);
+            }
+
+            // Save the new objects to the database
+            acTrans.Commit();
+        }
+    }
     ```
   - 플롯 스타일 나열하기
     ```cs
+    // Get the current document and database, and start a transaction
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+    acDoc.Editor.WriteMessage("\nPlot styles: ");
+
+    foreach (string plotStyle in PlotSettingsValidator.Current.GetPlotStyleSheetList())
+    {
+        // Output the names of the available plot styles
+        acDoc.Editor.WriteMessage("\n  " + plotStyle);
+    }
     ```
   - 비주얼 스타일 나열하기
     ```cs
+    // Get the current document and database, and start a transaction
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        DBDictionary vStyles = acTrans.GetObject(acCurDb.VisualStyleDictionaryId, OpenMode.ForRead) as DBDictionary;
+
+        // Output a message to the Command Line history
+        acDoc.Editor.WriteMessage("\nVisual styles: ");
+
+        // Step through the dictionary
+        foreach (DBDictionaryEntry entry in vStyles)
+        {
+            // Get the dictionary entry
+            DBVisualStyle vStyle = vStyles.GetAt(entry.Key).GetObject(OpenMode.ForRead) as DBVisualStyle;
+
+            // If the visual style is not marked for internal use then output its name
+            if (vStyle.InternalUseOnly == false)
+            {
+                // Output the name of the visual style
+                acDoc.Editor.WriteMessage("\n  " + vStyle.Name);
+            }
+        }
+    }
     ```
   - 페이지 설정 나열하기
     ```cs
+    // Get the current document and database
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    // Start a transaction
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        DBDictionary plSettings = acTrans.GetObject(acCurDb.PlotSettingsDictionaryId, OpenMode.ForRead) as DBDictionary;
+
+        acDoc.Editor.WriteMessage("\nPage Setups: ");
+
+        // List each named page setup
+        foreach (DBDictionaryEntry item in plSettings)
+        {
+            acDoc.Editor.WriteMessage("\n  " + item.Key);
+        }
+
+        // Abort the changes to the database
+        acTrans.Abort();
+    }
     ```
   - 페이지 설정 만들기
     ```cs
+    // Get the current document and database, and start a transaction
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+
+        DBDictionary plSets = acTrans.GetObject(acCurDb.PlotSettingsDictionaryId, OpenMode.ForRead) as DBDictionary;
+        DBDictionary vStyles = acTrans.GetObject(acCurDb.VisualStyleDictionaryId, OpenMode.ForRead) as DBDictionary;
+
+        PlotSettings acPlSet = default(PlotSettings);
+        bool createNew = false;
+
+        // Reference the Layout Manager
+        LayoutManager acLayoutMgr = LayoutManager.Current;
+
+        // Get the current layout and output its name in the Command Line window
+        Layout acLayout = acTrans.GetObject(acLayoutMgr.GetLayoutId(acLayoutMgr.CurrentLayout), OpenMode.ForRead) as Layout;
+
+        // Check to see if the page setup exists
+        if (plSets.Contains("MyPageSetup") == false)
+        {
+            createNew = true;
+
+            // Create a new PlotSettings object: 
+            //    True - model space, False - named layout
+            acPlSet = new PlotSettings(acLayout.ModelType);
+            acPlSet.CopyFrom(acLayout);
+
+            acPlSet.PlotSettingsName = "MyPageSetup";
+            acPlSet.AddToPlotSettingsDictionary(acCurDb);
+            acTrans.AddNewlyCreatedDBObject(acPlSet, true);
+        }
+        else
+        {
+            acPlSet = plSets.GetAt("MyPageSetup").GetObject(OpenMode.ForWrite) as PlotSettings;
+        }
+
+        // Update the PlotSettings object
+        try
+        {
+            PlotSettingsValidator acPlSetVdr = PlotSettingsValidator.Current;
+
+            // Set the Plotter and page size
+            acPlSetVdr.SetPlotConfigurationName(acPlSet, "DWF6 ePlot.pc3", "ANSI_B_(17.00_x_11.00_Inches)");
+
+            // Set to plot to the current display
+            if (acLayout.ModelType == false)
+            {
+                acPlSetVdr.SetPlotType(acPlSet, Autodesk.AutoCAD.DatabaseServices.PlotType.Layout);
+            }
+            else
+            {
+                acPlSetVdr.SetPlotType(acPlSet, Autodesk.AutoCAD.DatabaseServices.PlotType.Extents);
+
+                acPlSetVdr.SetPlotCentered(acPlSet, true);
+            }
+
+            // Use SetPlotWindowArea with PlotType.Window
+            //acPlSetVdr.SetPlotWindowArea(plSet,
+            //                             new Extents2d(New Point2d(0.0, 0.0),
+            //                             new Point2d(9.0, 12.0)));
+
+            // Use SetPlotViewName with PlotType.View
+            //acPlSetVdr.SetPlotViewName(plSet, "MyView");
+
+            // Set the plot offset
+            acPlSetVdr.SetPlotOrigin(acPlSet, new Point2d(0, 0));
+
+            // Set the plot scale
+            acPlSetVdr.SetUseStandardScale(acPlSet, true);
+            acPlSetVdr.SetStdScaleType(acPlSet, StdScaleType.ScaleToFit);
+            acPlSetVdr.SetPlotPaperUnits(acPlSet, PlotPaperUnit.Inches);
+            acPlSet.ScaleLineweights = true;
+
+            // Specify if plot styles should be displayed on the layout
+            acPlSet.ShowPlotStyles = true;
+
+            // Rebuild plotter, plot style, and canonical media lists 
+            // (must be called before setting the plot style)
+            acPlSetVdr.RefreshLists(acPlSet);
+
+            // Specify the shaded viewport options
+            acPlSet.ShadePlot = PlotSettingsShadePlotType.AsDisplayed;
+
+            acPlSet.ShadePlotResLevel = ShadePlotResLevel.Normal;
+
+            // Specify the plot options
+            acPlSet.PrintLineweights = true;
+            acPlSet.PlotTransparency = false;
+            acPlSet.PlotPlotStyles = true;
+            acPlSet.DrawViewportsFirst = true;
+
+            // Use only on named layouts - Hide paperspace objects option
+            // plSet.PlotHidden = true;
+
+            // Specify the plot orientation
+            acPlSetVdr.SetPlotRotation(acPlSet, PlotRotation.Degrees000);
+
+            // Set the plot style
+            if (acCurDb.PlotStyleMode == true)
+            {
+                acPlSetVdr.SetCurrentStyleSheet(acPlSet, "acad.ctb");
+            }
+            else
+            {
+                acPlSetVdr.SetCurrentStyleSheet(acPlSet, "acad.stb");
+            }
+
+            // Zoom to show the whole paper
+            acPlSetVdr.SetZoomToPaperOnUpdate(acPlSet, true);
+        }
+        catch (Autodesk.AutoCAD.Runtime.Exception es)
+        {
+            System.Windows.Forms.MessageBox.Show(es.Message);
+        }
+
+        // Save the changes made
+        acTrans.Commit();
+
+        if (createNew == true)
+        {
+            acPlSet.Dispose();
+        }
+    }
     ```
   - 모델 공간 플롯하기
     ```cs
+    // Get the current document and database, and start a transaction
+    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+    Database acCurDb = acDoc.Database;
+
+    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+    {
+        // Reference the Layout Manager
+        LayoutManager acLayoutMgr = LayoutManager.Current;
+
+        // Get the current layout and output its name in the Command Line window
+        Layout acLayout = acTrans.GetObject(acLayoutMgr.GetLayoutId(acLayoutMgr.CurrentLayout), OpenMode.ForRead) as Layout;
+
+        // Get the PlotInfo from the layout
+        using (PlotInfo acPlInfo = new PlotInfo())
+        {
+            acPlInfo.Layout = acLayout.ObjectId;
+
+            // Get a copy of the PlotSettings from the layout
+            using (PlotSettings acPlSet = new PlotSettings(acLayout.ModelType))
+            {
+                acPlSet.CopyFrom(acLayout);
+
+                // Update the PlotSettings object
+                PlotSettingsValidator acPlSetVdr = PlotSettingsValidator.Current;
+
+                // Set the plot type
+                acPlSetVdr.SetPlotType(acPlSet, Autodesk.AutoCAD.DatabaseServices.PlotType.Extents);
+
+                // Set the plot scale
+                acPlSetVdr.SetUseStandardScale(acPlSet, true);
+                acPlSetVdr.SetStdScaleType(acPlSet, StdScaleType.ScaleToFit);
+
+                // Center the plot
+                acPlSetVdr.SetPlotCentered(acPlSet, true);
+
+                // Set the plot device to use
+                acPlSetVdr.SetPlotConfigurationName(acPlSet, "DWF6 ePlot.pc3", "ANSI_A_(8.50_x_11.00_Inches)");
+
+                // Set the plot info as an override since it will
+                // not be saved back to the layout
+                acPlInfo.OverrideSettings = acPlSet;
+
+                // Validate the plot info
+                using (PlotInfoValidator acPlInfoVdr = new PlotInfoValidator())
+                {
+                    acPlInfoVdr.MediaMatchingPolicy = MatchingPolicy.MatchEnabled;
+                    acPlInfoVdr.Validate(acPlInfo);
+
+                    // Check to see if a plot is already in progress
+                    if (PlotFactory.ProcessPlotState == ProcessPlotState.NotPlotting)
+                    {
+                        using (PlotEngine acPlEng = PlotFactory.CreatePublishEngine())
+                        {
+                            // Track the plot progress with a Progress dialog
+                            using (PlotProgressDialog acPlProgDlg = new PlotProgressDialog(false, 1, true))
+                            {
+                                using ((acPlProgDlg))
+                                {
+                                    // Define the status messages to display 
+                                    // when plotting starts
+                                    acPlProgDlg.set_PlotMsgString(PlotMessageIndex.DialogTitle, "Plot Progress");
+                                    acPlProgDlg.set_PlotMsgString(PlotMessageIndex.CancelJobButtonMessage, "Cancel Job");
+                                    acPlProgDlg.set_PlotMsgString(PlotMessageIndex.CancelSheetButtonMessage, "Cancel Sheet");
+                                    acPlProgDlg.set_PlotMsgString(PlotMessageIndex.SheetSetProgressCaption, "Sheet Set Progress");
+                                    acPlProgDlg.set_PlotMsgString(PlotMessageIndex.SheetProgressCaption, "Sheet Progress");
+
+                                    // Set the plot progress range
+                                    acPlProgDlg.LowerPlotProgressRange = 0;
+                                    acPlProgDlg.UpperPlotProgressRange = 100;
+                                    acPlProgDlg.PlotProgressPos = 0;
+
+                                    // Display the Progress dialog
+                                    acPlProgDlg.OnBeginPlot();
+                                    acPlProgDlg.IsVisible = true;
+
+                                    // Start to plot the layout
+                                    acPlEng.BeginPlot(acPlProgDlg, null);
+
+                                    // Define the plot output
+                                    acPlEng.BeginDocument(acPlInfo, acDoc.Name, null, 1, true, "c:\\myplot");
+
+                                    // Display information about the current plot
+                                    acPlProgDlg.set_PlotMsgString(PlotMessageIndex.Status, "Plotting: " + acDoc.Name + " - " + acLayout.LayoutName);
+
+                                    // Set the sheet progress range
+                                    acPlProgDlg.OnBeginSheet();
+                                    acPlProgDlg.LowerSheetProgressRange = 0;
+                                    acPlProgDlg.UpperSheetProgressRange = 100;
+                                    acPlProgDlg.SheetProgressPos = 0;
+
+                                    // Plot the first sheet/layout
+                                    using (PlotPageInfo acPlPageInfo = new PlotPageInfo())
+                                    {
+                                        acPlEng.BeginPage(acPlPageInfo, acPlInfo, true, null);
+                                    }
+
+                                    acPlEng.BeginGenerateGraphics(null);
+                                    acPlEng.EndGenerateGraphics(null);
+
+                                    // Finish plotting the sheet/layout
+                                    acPlEng.EndPage(null);
+                                    acPlProgDlg.SheetProgressPos = 100;
+                                    acPlProgDlg.OnEndSheet();
+
+                                    // Finish plotting the document
+                                    acPlEng.EndDocument(null);
+
+                                    // Finish the plot
+                                    acPlProgDlg.PlotProgressPos = 100;
+                                    acPlProgDlg.OnEndPlot();
+                                    acPlEng.EndPlot(null);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     ```
   - 레이아웃 발행하기
     ```cs
+    using (DsdEntryCollection dsdDwgFiles = new DsdEntryCollection())
+    {
+        // Define the first layout
+        using (DsdEntry dsdDwgFile1 = new DsdEntry())
+        {
+            // Set the file name and layout
+            dsdDwgFile1.DwgName = "C:\\AutoCAD\\Samples\\Sheet Sets\\Architectural\\A-01.dwg";
+            dsdDwgFile1.Layout = "MAIN AND SECOND FLOOR PLAN";
+            dsdDwgFile1.Title = "A-01 MAIN AND SECOND FLOOR PLAN";
+
+            // Set the page setup override
+            dsdDwgFile1.Nps = "";
+            dsdDwgFile1.NpsSourceDwg = "";
+
+            dsdDwgFiles.Add(dsdDwgFile1);
+        }
+
+        // Define the second layout
+        using (DsdEntry dsdDwgFile2 = new DsdEntry())
+        {
+            // Set the file name and layout
+            dsdDwgFile2.DwgName = "C:\\AutoCAD\\Samples\\Sheet Sets\\Architectural\\A-02.dwg";
+            dsdDwgFile2.Layout = "ELEVATIONS";
+            dsdDwgFile2.Title = "A-02 ELEVATIONS";
+
+            // Set the page setup override
+            dsdDwgFile2.Nps = "";
+            dsdDwgFile2.NpsSourceDwg = "";
+
+            dsdDwgFiles.Add(dsdDwgFile2);
+        }
+
+        // Set the properties for the DSD file and then write it out
+        using (DsdData dsdFileData = new DsdData())
+        {
+            // Set the target information for publishing
+            dsdFileData.DestinationName = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\MyPublish2.pdf";
+            dsdFileData.ProjectPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\";
+            dsdFileData.SheetType = SheetType.MultiPdf;
+
+            // Set the drawings that should be added to the publication
+            dsdFileData.SetDsdEntryCollection(dsdDwgFiles);
+
+            // Set the general publishing properties
+            dsdFileData.LogFilePath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\myBatch.txt";
+
+            // Create the DSD file
+            dsdFileData.WriteDsd(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\batchdrawings2.dsd");
+
+            try
+            {
+                // Publish the specified drawing files in the DSD file, and
+                // honor the behavior of the BACKGROUNDPLOT system variable
+
+                using (DsdData dsdDataFile = new DsdData())
+                {
+                    dsdDataFile.ReadDsd(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\batchdrawings2.dsd");
+
+                    // Get the DWG to PDF.pc3 and use it as a 
+                    // device override for all the layouts
+                    PlotConfig acPlCfg = PlotConfigManager.SetCurrentConfig("DWG to PDF.PC3");
+
+                    Application.Publisher.PublishExecute(dsdDataFile, acPlCfg);
+                }
+            }
+            catch (Autodesk.AutoCAD.Runtime.Exception es)
+            {
+                System.Windows.Forms.MessageBox.Show(es.Message);
+            }
+        }
+    }
     ```
 
 #### 이벤트
