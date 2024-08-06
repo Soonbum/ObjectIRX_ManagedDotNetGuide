@@ -416,6 +416,16 @@ using (Transaction tr = db.TransactionManager.StartTransaction())
 #### 레이어 별로 이미지 Clipping해서 플롯(인쇄)하기
 
 ```cs
+public ImageClippingForm()
+{
+    InitializeComponent();
+
+    popupContainerEdit_PaperOrientation.Text = "가로";
+    popupContainerEdit_PaperSize.Text = "ISO A3 (1123.00 x 1587.00 Pixels)";
+
+    progressBarControl.Hide();
+}
+
 private async void ImageSaveButton_Click(object sender, EventArgs e)
 {
     Document doc = IntelliCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
@@ -423,14 +433,14 @@ private async void ImageSaveButton_Click(object sender, EventArgs e)
     Database db = doc.Database;
 
     // 사용자로부터 두 점을 입력받아 화면 범위를 선택
-    PromptPointResult ppr1 = ed.GetPoint("첫 번째 지점을 선택하십시오:");
+    PromptPointResult ppr1 = ed.GetPoint("\n첫 번째 지점을 선택하십시오 ");
 
     if (ppr1.Status != PromptStatus.OK) return;
     Teigha.Geometry.Point3d firstPoint = ppr1.Value;
 
     if (ppr1.Status == PromptStatus.Cancel) return;
 
-    PromptPointResult ppr2 = ed.GetCorner("두 번째 지점을 선택하십시오:", ppr1.Value);
+    PromptPointResult ppr2 = ed.GetCorner("\n두 번째 지점을 선택하십시오 ", ppr1.Value);
 
     if (ppr2.Status != PromptStatus.OK) return;
     Teigha.Geometry.Point3d secondPoint = ppr2.Value;
@@ -448,247 +458,197 @@ private async void ImageSaveButton_Click(object sender, EventArgs e)
 
     using (Transaction tr = db.TransactionManager.StartTransaction())
     {
-        // 용지 방향
-        bool OrientationLandScape = true;
+        int nWidthPixel = 0;
+        int nHeightPixel = 0;
+        bool isPaper = true;
 
-        if (popupContainerEdit_PaperOrientation.Text == "가로")
-            OrientationLandScape = true;
-        else
-            OrientationLandScape = false;
+        // 플롯 크기를 구함
+        getPlotSize(popupContainerEdit_PaperSize.Text, out nWidthPixel, out nHeightPixel, out isPaper);
+
+        // 용지 방향
+        bool OrientationLandScape = (popupContainerEdit_PaperOrientation.Text == "가로") ? true : false;
 
         // 용지 크기
         string paperSize = popupContainerEdit_PaperSize.Text;
 
         // 파일 저장 다이얼로그 표시
-        System.Windows.Forms.SaveFileDialog saveFileDialog = new System.Windows.Forms.SaveFileDialog();
-        saveFileDialog.Filter = "이미지 파일|*.png";
-        saveFileDialog.Title = "이미지 파일을 저장하십시오.";
-        saveFileDialog.FileName = "TestPrint.png";
-
-        if (saveFileDialog.ShowDialog() == DialogResult.OK)
+        System.Windows.Forms.SaveFileDialog saveFileDialog = new System.Windows.Forms.SaveFileDialog()
         {
-            progressBarControl.Show();
+            Filter = "이미지 파일|*.png",
+            Title = "이미지 파일을 저장하십시오.",
+            FileName = "TestPrint.png"
+        };
 
-            string outputFilePath = saveFileDialog.FileName;
+        if (saveFileDialog.ShowDialog() != DialogResult.OK)
+            return;
 
-            // 현재 레이아웃을 플롯(인쇄)
-            BlockTableRecord currentSpace = (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForRead);
-            Layout layout = (Layout)tr.GetObject(currentSpace.LayoutId, OpenMode.ForRead);
+        progressBarControl.Show();
 
-            // PlotInfo 객체를 레이아웃에 연결
-            PlotInfo plotInfo = new PlotInfo();
-            plotInfo.Layout = currentSpace.LayoutId;
+        string outputFilePath = saveFileDialog.FileName;
 
-            // 레이아웃 설정을 기반으로 PlotSettings 객체 설정
-            PlotSettings plotSettings = new PlotSettings(layout.ModelType);
-            plotSettings.CopyFrom(layout);
+        // 현재 레이아웃을 플롯(인쇄)
+        BlockTableRecord currentSpace = (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForRead);
+        Layout layout = (Layout)tr.GetObject(currentSpace.LayoutId, OpenMode.ForRead);
 
-            // The PlotSettingsValidator helps create a valid PlotSettings object
-            PlotSettingsValidator plotSettingsValidator = PlotSettingsValidator.Current;
-            plotSettingsValidator.SetPlotWindowArea(plotSettings, plotWindow);      // 화면 범위
+        // PlotInfo 객체를 레이아웃에 연결
+        PlotInfo plotInfo = new PlotInfo();
+        plotInfo.Layout = currentSpace.LayoutId;
 
-            // scaled to fit
-            plotSettingsValidator.SetPlotType(plotSettings, PlotType.Window);
-            plotSettingsValidator.SetUseStandardScale(plotSettings, true);
-            plotSettingsValidator.SetStdScaleType(plotSettings, StdScaleType.ScaleToFit);
-            plotSettingsValidator.SetPlotCentered(plotSettings, true);
-            if (OrientationLandScape)
-                plotSettingsValidator.SetPlotRotation(plotSettings, PlotRotation.Degrees090);   // 가로 방향
-            else
-                plotSettingsValidator.SetPlotRotation(plotSettings, PlotRotation.Degrees000);   // 세로 방향
+        // 레이아웃 설정을 기반으로 PlotSettings 객체 설정
+        PlotSettings plotSettings = new PlotSettings(layout.ModelType);
+        plotSettings.CopyFrom(layout);
 
+        // The PlotSettingsValidator helps create a valid PlotSettings object
+        PlotSettingsValidator plotSettingsValidator = PlotSettingsValidator.Current;
+        plotSettingsValidator.SetPlotWindowArea(plotSettings, plotWindow);      // 화면 범위
 
-            // Use standard DWF PC3, as for today we're just plotting to file
-            plotSettingsValidator.SetPlotConfigurationName(plotSettings, "PublishToWeb PNG.pc3", paperSize); // Needs to be a device that can print directly and valid media name.
-            // plotSettingsValidator.SetCurrentStyleSheet(plotSettings, "Icad.ctb");    // Set stylesheet
+        // scaled to fit
+        plotSettingsValidator.SetPlotType(plotSettings, PlotType.Window);
+        plotSettingsValidator.SetUseStandardScale(plotSettings, false);
+        plotSettingsValidator.SetCustomPrintScale(plotSettings, new CustomScale(1.0, 1.0));
+        plotSettings.PrintLineweights = true;
+        plotSettingsValidator.SetStdScaleType(plotSettings, StdScaleType.ScaleToFit);
+        plotSettingsValidator.SetPlotCentered(plotSettings, true);
 
-            // Save the modified PlotSettings to the database
-            layout.UpgradeOpen();
-            layout.CopyFrom(plotSettings);
+        // Use standard DWF PC3, as for today we're just plotting to file
+        plotSettingsValidator.SetPlotConfigurationName(plotSettings, "PublishToWeb PNG.pc3", paperSize); // Needs to be a device that can print directly and valid media name.
+        // plotSettingsValidator.SetCurrentStyleSheet(plotSettings, "Icad.ctb");    // Set stylesheet
 
-            plotInfo.OverrideSettings = plotSettings;
-            PlotInfoValidator plotInfoValidator = new PlotInfoValidator();
-            plotInfoValidator.MediaMatchingPolicy = MatchingPolicy.MatchEnabled;
-            plotInfoValidator.Validate(plotInfo);
+        // Save the modified PlotSettings to the database
+        layout.UpgradeOpen();
+        layout.CopyFrom(plotSettings);
 
-            // A PlotEngine does the actual plotting
-            if (PlotFactory.ProcessPlotState == ProcessPlotState.NotPlotting)
+        plotInfo.OverrideSettings = plotSettings;
+        PlotInfoValidator plotInfoValidator = new PlotInfoValidator();
+        plotInfoValidator.MediaMatchingPolicy = MatchingPolicy.MatchEnabled;
+        plotInfoValidator.Validate(plotInfo);
+
+        // A PlotEngine does the actual plotting
+        if (PlotFactory.ProcessPlotState == ProcessPlotState.NotPlotting)
+        {
+            // 전체 플롯
+            PerformPlot(outputFilePath, plotInfo, "TestPrint");
+
+            // outputFilePath 이미지 파일을 그레이스케일로 변환
+            if (checkEdit_grayscale.Checked)
             {
-                // 전체 플롯
-                try
+                colorImgToGrayscaleImg(outputFilePath);
+            }
+
+            // outputFilePath 이미지 파일에 안티앨리어싱 적용
+            if (checkEdit_antialiasing.Checked)
+            {
+                imgAntialiasing(outputFilePath);
+            }
+
+            // 용지 크기가 아닌 사용자가 입력한 비율대로 정확하게 crop하기
+            cropImage(outputFilePath, nWidthPixel, nHeightPixel, plotWindow, isPaper);
+
+            // 현재 데이터베이스의 레이어 테이블 반환
+            LayerTable acLyrTbl;
+            acLyrTbl = tr.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+            // 플러그인 실행 전 레이어 상태를 저장함
+            List<(LayerTableRecord, bool)> layerList = new List<(LayerTableRecord, bool)>();
+
+            foreach (ObjectId acObjId in acLyrTbl)
+            {
+                LayerTableRecord acLyrTblRec;
+                acLyrTblRec = tr.GetObject(acObjId, OpenMode.ForWrite) as LayerTableRecord;
+
+                layerList.Add((acLyrTblRec, acLyrTblRec.IsOff));
+            }
+
+            // 레이어 모두 끄기
+            foreach (ObjectId acObjId in acLyrTbl)
+            {
+                LayerTableRecord acLyrTblRec;
+                acLyrTblRec = tr.GetObject(acObjId, OpenMode.ForWrite) as LayerTableRecord;
+
+                acLyrTblRec.IsOff = true;
+            }
+
+            // 레이어를 하나씩 켜고 플롯 후 레이어를 다시 끔
+            foreach (ObjectId acObjId in acLyrTbl)
+            {
+                LayerTableRecord acLyrTblRec;
+                acLyrTblRec = tr.GetObject(acObjId, OpenMode.ForWrite) as LayerTableRecord;
+
+                acLyrTblRec.IsOff = false;  // 레이어 켜기
+
+                // 만약 acLyrTblRec.Name 안에 파일 이름으로 쓸 수 없는 문자가 있으면 _로 대체
+                string invalidChars = new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars());
+                string invalidRegex = string.Format("[{0}]", Regex.Escape(invalidChars));
+                string safeName = Regex.Replace(acLyrTblRec.Name, invalidRegex, "_");
+
+                // 파일명은 "TestPrint - 레이어명.png"로 저장 (TestPrint는 기본값)
+                string newOutputFilePath = outputFilePath.Replace(".png", " - " + safeName + ".png");
+
+                // 진행바 표시하기
+                progressBarControl.Properties.Step = 1;
+                progressBarControl.Properties.Maximum = layerList.Count();
+                await Task.Run(() =>
                 {
-                    PlotEngine plotEngine = PlotFactory.CreatePublishEngine();
+                    lock (progressBarControl)
+                    {
+                        progressBarControl.PerformStep();
+                    }
+                });
 
-                    plotEngine.BeginPlot(null, null);
-                    PlotConfig config = plotInfo.ValidatedConfig;
-                    config.IsPlotToFile = true;
-                    plotEngine.BeginDocument(plotInfo, "TestPrint", null, 1, true, outputFilePath);
-                    PlotPageInfo plotPageInfo = new PlotPageInfo();
-                    plotEngine.BeginPage(plotPageInfo, plotInfo, true, null);
-                    plotEngine.BeginGenerateGraphics(null);
+                // 레이어별 플롯
+                PerformPlot(newOutputFilePath, plotInfo, "TestPrint");
 
-                    plotEngine.EndGenerateGraphics(null);
-                    plotEngine.EndPage(null);
-                    plotEngine.EndDocument(null);
-                    plotEngine.EndPlot(null);
-                    plotEngine.Destroy();
-                    plotEngine = null;
-                }
-                catch (System.Exception error) { System.Exception Err = error; }
-
-                // outputFilePath 이미지 파일을 그레이스케일로 변환
+                // newOutputFilePath 이미지 파일을 그레이스케일로 변환
                 if (checkEdit_grayscale.Checked)
                 {
-                    using (var src = new Mat(outputFilePath, ImreadModes.Color))
-                    {
-                        // 그레이스케일 이미지로 변환
-                        using (var gray = new Mat())
-                        {
-                            Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
-
-                            using (var enhancedGray = new Mat())
-                            {
-                                // 히스토그램 균등화를 통해 대비를 증가시킴
-                                Cv2.EqualizeHist(gray, enhancedGray);
-
-                                // 그레이스케일 이미지 저장
-                                Cv2.ImWrite(outputFilePath, enhancedGray);
-                            }
-                        }
-                    }
+                    colorImgToGrayscaleImg(newOutputFilePath);
                 }
 
-                // 현재 데이터베이스의 레이어 테이블 반환
-                LayerTable acLyrTbl;
-                acLyrTbl = tr.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable;
-
-                // 플러그인 실행 전 레이어 상태를 저장함
-                List<(LayerTableRecord, bool)> layerList = new List<(LayerTableRecord, bool)>();
-
-                foreach (ObjectId acObjId in acLyrTbl)
+                // outputFilePath 이미지 파일에 안티앨리어싱 적용
+                if (checkEdit_antialiasing.Checked)
                 {
-                    LayerTableRecord acLyrTblRec;
-                    acLyrTblRec = tr.GetObject(acObjId, OpenMode.ForWrite) as LayerTableRecord;
-
-                    layerList.Add((acLyrTblRec, acLyrTblRec.IsOff));
+                    imgAntialiasing(newOutputFilePath);
                 }
 
-                // 레이어 모두 끄기
-                foreach (ObjectId acObjId in acLyrTbl)
+                // 흰색 이미지인 경우 파일 삭제
+                Mat image = Cv2.ImRead(newOutputFilePath, ImreadModes.Color);
+                if (IsWhiteImage(image))
                 {
-                    LayerTableRecord acLyrTblRec;
-                    acLyrTblRec = tr.GetObject(acObjId, OpenMode.ForWrite) as LayerTableRecord;
-
-                    acLyrTblRec.IsOff = true;
+                    System.IO.File.Delete(newOutputFilePath);   // 생성했던 newOutputFilePath 파일 삭제
                 }
-
-                // 레이어를 하나씩 켜고 플롯 후 레이어를 다시 끔
-                foreach (ObjectId acObjId in acLyrTbl)
+                else
                 {
-                    LayerTableRecord acLyrTblRec;
-                    acLyrTblRec = tr.GetObject(acObjId, OpenMode.ForWrite) as LayerTableRecord;
-
-                    acLyrTblRec.IsOff = false;  // 레이어 켜기
-
-                    // 만약 acLyrTblRec.Name 안에 파일 이름으로 쓸 수 없는 문자가 있으면 _로 대체
-                    string invalidChars = new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars());
-                    string invalidRegex = string.Format("[{0}]", Regex.Escape(invalidChars));
-                    string safeName = Regex.Replace(acLyrTblRec.Name, invalidRegex, "_");
-
-                    // 파일명은 "TestPrint - 레이어명.png"로 저장 (TestPrint는 기본값)
-                    string newOutputFilePath = outputFilePath.Replace(".png", " - " + safeName + ".png");
-
-                    // 진행바 표시하기
-                    progressBarControl.Properties.Step = 1;
-                    progressBarControl.Properties.Maximum = layerList.Count();
-                    await Task.Run(() =>
-                    {
-                        lock (progressBarControl)
-                        {
-                            progressBarControl.PerformStep();
-                        }
-                    });
-
-
-                    // 레이어별 플롯
-                    try
-                    {
-                        PlotEngine plotEngine = PlotFactory.CreatePublishEngine();
-
-                        plotEngine.BeginPlot(null, null);
-                        PlotConfig config = plotInfo.ValidatedConfig;
-                        config.IsPlotToFile = true;
-                        plotEngine.BeginDocument(plotInfo, "TestPrint", null, 1, true, newOutputFilePath);
-                        PlotPageInfo plotPageInfo = new PlotPageInfo();
-                        plotEngine.BeginPage(plotPageInfo, plotInfo, true, null);
-                        plotEngine.BeginGenerateGraphics(null);
-
-                        plotEngine.EndGenerateGraphics(null);
-                        plotEngine.EndPage(null);
-                        plotEngine.EndDocument(null);
-                        plotEngine.EndPlot(null);
-                        plotEngine.Destroy();
-                        plotEngine = null;
-
-
-                    }
-                    catch (System.Exception error) { System.Exception Err = error; }
-
-                    // newOutputFilePath 이미지 파일을 그레이스케일로 변환
-                    if (checkEdit_grayscale.Checked)
-                    {
-                        using (var src = new Mat(newOutputFilePath, ImreadModes.Color))
-                        {
-                            // 그레이스케일 이미지로 변환
-                            using (var gray = new Mat())
-                            {
-                                Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
-
-                                using (var enhancedGray = new Mat())
-                                {
-                                    // 히스토그램 균등화를 통해 대비를 증가시킴
-                                    Cv2.EqualizeHist(gray, enhancedGray);
-
-                                    // 그레이스케일 이미지 저장
-                                    Cv2.ImWrite(newOutputFilePath, enhancedGray);
-                                }
-                            }
-                        }
-                    }
-
-                    // 흰색 이미지인 경우 파일 삭제
-                    Mat image = Cv2.ImRead(newOutputFilePath, ImreadModes.Color);
-                    if (IsWhiteImage(image))
-                    {
-                        System.IO.File.Delete(newOutputFilePath);   // 생성했던 newOutputFilePath 파일 삭제
-                    }
-
-                    acLyrTblRec.IsOff = true;   // 레이어 끄기
-
-                    GC.Collect();   // 1회 반복 후 메모리 정리
+                    // 용지 크기가 아닌 사용자가 입력한 비율대로 정확하게 crop하기
+                    cropImage(newOutputFilePath, nWidthPixel, nHeightPixel, plotWindow, isPaper);
                 }
 
-                // 레이어 상태를 복구함
-                foreach (var layer in layerList)
-                {
-                    layer.Item1.IsOff = layer.Item2;
-                }
+                acLyrTblRec.IsOff = true;   // 레이어 끄기
 
-                XtraMessageBox.Show("Plot을 완료했습니다.", "성공", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                GC.Collect();   // 1회 반복 후 메모리 정리
             }
 
-            else
+            // 레이어 상태를 복구함
+            foreach (var layer in layerList)
             {
-                ed.WriteMessage("\n다른 플롯이 진행 중입니다.");
+                layer.Item1.IsOff = layer.Item2;
             }
 
-            progressBarControl.Hide();
+            XtraMessageBox.Show("Plot을 완료했습니다.", "성공", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
+
+        else
+        {
+            ed.WriteMessage("\n다른 플롯이 진행 중입니다.\n");
+        }
+
+        progressBarControl.Hide();
 
         tr.Commit();
     }
 
     GC.Collect();
+
+    ed.WriteMessage("\n");
 }
 
 static bool IsWhiteImage(Mat image)
@@ -712,6 +672,159 @@ static bool IsWhiteImage(Mat image)
 
     // 모든 픽셀이 흰색인지 확인
     return nonWhitePixelCount == image.Total();
+}
+
+void getPlotSize(string paperSizeName, out int plotWidth, out int plotHeight, out bool isPaper)
+{
+    plotWidth = 0; plotHeight = 0; isPaper = true;
+
+    if (paperSizeName == "ISO A0 (3179.00 x 4494.00 Pixels)")
+    {
+        plotWidth = 3179; plotHeight = 4494; isPaper = true;
+    }
+    else if (paperSizeName == "ISO A1 (2245.00 x 3179.00 Pixels)")
+    {
+        plotWidth = 2245; plotHeight = 3179; isPaper = true;
+    }
+    else if (paperSizeName == "ISO A2 (1587.00 x 2245.00 Pixels)")
+    {
+        plotWidth = 1587; plotHeight = 2245; isPaper = true;
+    }
+    else if (paperSizeName == "ISO A3 (1123.00 x 1587.00 Pixels)")
+    {
+        plotWidth = 1123; plotHeight = 1587; isPaper = true;
+    }
+    else if (paperSizeName == "ISO A4 (794.00 x 1123.00 Pixels)")
+    {
+        plotWidth = 794; plotHeight = 1123; isPaper = true;
+    }
+    else if (paperSizeName == "FHD (1920.00 x 1080.00 Pixels)")
+    {
+        plotWidth = 1920; plotHeight = 1080; isPaper = false;
+    }
+    else if (paperSizeName == "WUXGA (1920.00 x 1200.00 Pixels)")
+    {
+        plotWidth = 1920; plotHeight = 1200; isPaper = false;
+    }
+    else if (paperSizeName == "4K UHD (3840.00 x 2160.00 Pixels)")
+    {
+        plotWidth = 3840; plotHeight = 2160; isPaper = false;
+    }
+    else if (paperSizeName == "4K Digital Cinema (4096.00 x 2160.00 Pixels)")
+    {
+        plotWidth = 4096; plotHeight = 2160; isPaper = false;
+    }
+    else if (paperSizeName == "8K UHDTV (7680.00 x 4320.00 Pixels)")
+    {
+        plotWidth = 7680; plotHeight = 4320; isPaper = false;
+    }
+}
+
+void cropImage(string outputFilePath, int plotWidth, int plotHeight, Extents2d plotWindow, bool isPaper)
+{
+    // 실제 사용자가 그린 RECT 너비와 높이
+    int rectWidth = (int)plotWindow.MaxPoint.X - (int)plotWindow.MinPoint.X;
+    int rectHeight = (int)plotWindow.MaxPoint.Y - (int)plotWindow.MinPoint.Y;
+
+    int cropLength = 0;
+
+    if (isPaper)
+    {
+        // 용지 규격, 세로 방향
+        // 용지 규격, 가로 방향 --> 이미지 세로 방향으로 나옴
+
+        // plotHeight에서 위아래쪽을 crop해야 함
+        // plotWidth : plotHeight - 2*(크롭길이) = rectWidth : rectHeight
+        cropLength = (rectWidth * plotHeight - plotWidth * rectHeight) / (2 * rectWidth);
+
+        Rect topBottomCropRegion = new Rect(0, cropLength, plotWidth, plotHeight - cropLength * 2);
+        Mat afterProcessImage = Cv2.ImRead(outputFilePath);
+
+        if (IsValidCropRegion(afterProcessImage, topBottomCropRegion))
+        {
+            Mat topBottomCroppedImage = new Mat(afterProcessImage, topBottomCropRegion);
+            Cv2.ImWrite(outputFilePath, topBottomCroppedImage);
+        }
+    }
+    else
+    {
+        // 화면 규격, 가로 방향
+        // 화면 규격, 세로 방향 --> 이미지 가로 방향으로 나옴
+
+        // plotWidth에서 양쪽을 crop해야 함
+        // plotWidth - 2*(크롭길이) : plotHeight = rectWidth : rectHeight
+        cropLength = (plotWidth - (rectWidth * plotHeight / rectHeight)) / 2;
+
+        Rect leftRightCropRegion = new Rect(cropLength, 0, plotWidth - cropLength * 2, plotHeight);
+        Mat afterProcessImage = Cv2.ImRead(outputFilePath);
+
+        if (IsValidCropRegion(afterProcessImage, leftRightCropRegion))
+        {
+            Mat leftRightCroppedImage = new Mat(afterProcessImage, leftRightCropRegion);
+            Cv2.ImWrite(outputFilePath, leftRightCroppedImage);
+        }
+    }
+}
+
+void colorImgToGrayscaleImg(string outputFilePath)
+{
+    using (var src = new Mat(outputFilePath, ImreadModes.Color))
+    {
+        // 그레이스케일 이미지로 변환
+        using (var gray = new Mat())
+        {
+            Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
+
+            using (var enhancedGray = new Mat())
+            {
+                // 히스토그램 균등화를 통해 대비를 증가시킴
+                Cv2.EqualizeHist(gray, enhancedGray);
+
+                // 그레이스케일 이미지 저장
+                Cv2.ImWrite(outputFilePath, enhancedGray);
+            }
+        }
+    }
+}
+
+void imgAntialiasing(string outputFilePath)
+{
+    using (var src = new Mat(outputFilePath))
+    {
+        // 가우시안 블러링 적용
+        Mat blurred = new Mat();
+        Cv2.GaussianBlur(src, blurred, new OpenCvSharp.Size(3, 3), 0);
+
+        // 결과 이미지 저장
+        Cv2.ImWrite(outputFilePath, blurred);
+    }
+}
+
+bool IsValidCropRegion(Mat image, Rect cropRegion)
+{
+    return cropRegion.X >= 0 && cropRegion.Y >= 0 &&
+            cropRegion.X + cropRegion.Width <= image.Width &&
+            cropRegion.Y + cropRegion.Height <= image.Height;
+}
+
+void PerformPlot(string outputFilePath, PlotInfo plotInfo, string title)
+{
+    using (PlotEngine plotEngine = PlotFactory.CreatePublishEngine())
+    {
+        plotEngine.BeginPlot(null, null);
+        PlotConfig config = plotInfo.ValidatedConfig;
+        config.IsPlotToFile = true;
+        plotEngine.BeginDocument(plotInfo, title, null, 1, true, outputFilePath);
+        PlotPageInfo plotPageInfo = new PlotPageInfo();
+        plotEngine.BeginPage(plotPageInfo, plotInfo, true, null);
+        plotEngine.BeginGenerateGraphics(null);
+
+        plotEngine.EndGenerateGraphics(null);
+        plotEngine.EndPage(null);
+        plotEngine.EndDocument(null);
+        plotEngine.EndPlot(null);
+        plotEngine.Destroy();
+    }
 }
 ```
 
