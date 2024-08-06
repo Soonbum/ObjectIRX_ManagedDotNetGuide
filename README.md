@@ -828,6 +828,1145 @@ void PerformPlot(string outputFilePath, PlotInfo plotInfo, string title)
 }
 ```
 
+#### JSON 데이터 읽고 CAD 도면 렌더링하기
+
+```cs
+private string imageFileName;
+private string JSONFileName_JunctionBox;
+private string JSONFileName_Segmentation;
+private string JSONFileName_OOB_Wall;
+
+// JSONFileName_JunctionBox 안에 들어 있는 Object 정보
+public class ObjectInfo
+{
+    [JsonProperty("class_name")]
+    public string ClassName { get; set; }
+
+    [JsonProperty("confidence")]
+    public double Confidence { get; set; }
+
+    [JsonProperty("bbox")]
+    public List<double> Bbox { get; set; }  // xmin, ymin, xmax, ymax
+
+    [JsonProperty("center")]
+    public List<double> Center { get; set; }    // centerx, centery
+}
+
+// JSONFileName_JunctionBox 안에 들어 있는 전체 정보
+public class JunctionBoxData
+{
+    [JsonProperty("imagePath")]
+    public string ImagePath { get; set; }
+
+    [JsonProperty("objects")]
+    public List<ObjectInfo> Objects { get; set; }
+
+    [JsonProperty("junctions")]
+    public List<ObjectInfo> Junctions { get; set; }
+}
+
+// JSONFileName_Segmentation 안에 들어 있는 Segment 정보
+public class SegmentInfo
+{
+    [JsonProperty("label")]
+    public string Label { get; set; }
+
+    [JsonProperty("points")]
+    public List<List<double>> Points { get; set; }
+}
+
+// JSONFileName_Segmentation 안에 들어 있는 전체 정보
+public class SegmentationData
+{
+    [JsonProperty("imagePath")]
+    public string ImagePath { get; set; }
+
+    [JsonProperty("segments")]
+    public List<SegmentInfo> Segments { get; set; }
+}
+
+// JSONFileName_OOB_Wall 안에 들어 있는 OOB Walls 정보
+public class OOBWallsInfo
+{
+    [JsonProperty("Wall_id")]
+    public int Wall_id { get; set; }
+
+    [JsonProperty("class_name")]
+    public string ClassName { get; set; }
+
+    [JsonProperty("points")]
+    public List<List<double>> Points { get; set; }
+}
+
+// JSONFileName_OOB_Wall 안에 들어 있는 전체 정보
+public class OOBWallData
+{
+    [JsonProperty("imagePath")]
+    public string ImagePath { get; set; }
+
+    [JsonProperty("oob_walls")]
+    public List<OOBWallsInfo> OOBWalls { get; set; }
+}
+
+// 하나의 선으로 표현하는 벽 객체
+public class WallLine
+{
+    public int id { get; set; }
+    // 벽 라인 꼭지점 2개
+    public Point2d p1 { get; set; }
+    public Point2d p2 { get; set; }
+
+    // 벽 두께
+    public double wallThk;
+}
+
+public class SimpleVector
+{
+    public Point2d startPoint { get; set; }
+    public Point2d endPoint { get; set; }
+
+    // 벽 두께
+    public double wallThk;
+
+    public SimpleVector(Point2d startPoint, Point2d endPoint)
+    {
+        this.startPoint = startPoint;
+        this.endPoint = endPoint;
+    }
+
+    public SimpleVector(Point2d startPoint, Point2d endPoint, double wallThk)
+    {
+        this.startPoint = startPoint;
+        this.endPoint = endPoint;
+        this.wallThk = wallThk;
+    }
+}
+
+// Junction 또는 Object를 의미하는 Box 객체
+public class Box
+{
+    public int id { get; set; }
+
+    // Junction(Junc_I, Junc_L, Junc_T, Junc_X) 타입의 경우 true, Object 타입의 경우 false
+    public bool isJuncBox { get; set; }
+
+    // 객체가 무슨 클래스인가? (Junc_X, window, door 등)
+    public string className { get; set; }
+
+    // AI 탐지 신뢰도 (0~1)
+    public double confidence { get; set; }
+
+    // 직사각형 객체의 기하 정보
+    public Extents2d rect { get; set; }
+
+    // 직사각형 객체의 중심점
+    public Point2d center { get; set; }
+
+    // 방향 벡터 정보 (isJuncBox == true일 경우에만 유효)
+    public List<SimpleVector> connectVector { get; set; }
+
+    // 방향 벡터로 연결된 인접 박스
+    public List<KeyValuePair<Box, double>> connectedBoxes { get; set; }
+}
+
+public DrawingJSONDataForm()
+{
+    InitializeComponent();
+
+    this.imageFileName = null;
+    this.JSONFileName_JunctionBox = null;
+    this.JSONFileName_Segmentation = null;
+    this.JSONFileName_OOB_Wall = null;
+}
+
+private void DrawInfoButton_Click(object sender, EventArgs e)
+{
+    Document doc = IntelliCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+    Editor ed = doc.Editor;
+    Database db = doc.Database;
+
+    List<WallLine> wallLines = new List<WallLine>();
+    List<Box> boxes = new List<Box>();
+
+    // 정션 박스는 고유 ID를 가져야 함
+    int juncBox_id = 0;
+
+    // 1. 이미지를 도면에 배치
+    string imagePath = this.imageFileName;
+
+    // 이미지의 너비, 높이 정의
+    Vector3d imageWidth;
+    Vector3d imageHeight;
+
+    // 레스터 이미지를 현재 도면에 부착하기
+    bool bRasterDefCreated = false;
+    RasterImageDef acRasterDef;
+    RasterImage acRaster;
+    ObjectId acImgDctID;
+    ObjectId acImgDefId;
+    DBDictionary acImgDict;
+    Point3d insPt;  // 이미지 삽입점 위치
+
+    using (Transaction acTrans = db.TransactionManager.StartTransaction())
+    {
+        // 이미지 디렉토리 가져오기
+        acImgDctID = RasterImageDef.GetImageDictionary(db);
+
+        // 이미지 디렉토리가 존재하지 않으면 생성함
+        if (acImgDctID.IsNull)
+        {
+            acImgDctID = RasterImageDef.CreateImageDictionary(db);
+        }
+
+        // 순수한 이미지 이름 추출
+        string strImgName = System.IO.Path.GetFileNameWithoutExtension(imagePath);
+
+        // 이미지 관리자
+        acImgDict = acTrans.GetObject(acImgDctID, OpenMode.ForRead) as DBDictionary;
+
+        // 이미지 관리자 안에 선택한 이미지가 있는지 확인할 것
+        if (acImgDict.Contains(strImgName))
+        {
+            acImgDefId = acImgDict.GetAt(strImgName);
+            acRasterDef = acTrans.GetObject(acImgDefId, OpenMode.ForWrite) as RasterImageDef;
+        }
+        else
+        {
+            // 레스터 이미지 정의 생성
+            RasterImageDef acRasterDefNew = new RasterImageDef();
+
+            // 이미지 파일에 대한 소스 설정
+            acRasterDefNew.SourceFileName = imagePath;
+
+            // 이미지 정의를 관리자에 추가
+            acImgDict.UpgradeOpen();
+            acImgDefId = acImgDict.SetAt(strImgName, acRasterDefNew);
+
+            // 이미지를 메모리에 로드
+            acRasterDefNew.Load();
+
+            acTrans.AddNewlyCreatedDBObject(acRasterDefNew, true);
+
+            acRasterDef = acRasterDefNew;
+
+            bRasterDefCreated = true;
+        }
+
+        // 읽기를 위한 블록 테이블 열기
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // 쓰기를 위한 블록 테이블 레코드 모델 공간 열기
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // 새 이미지 생성, 그리고 이미지 정의 할당
+        using (acRaster = new RasterImage())
+        {
+            acRaster.ImageDefId = acImgDefId;
+
+            LayerTable layTb = acTrans.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable;
+            string sLayerName = "IMG_DRAWING";
+
+            if (layTb.Has(sLayerName) == false)
+            {
+                using (LayerTableRecord layTbRec = new LayerTableRecord())
+                {
+                    layTbRec.Color = Teigha.Colors.Color.FromColorIndex(ColorMethod.ByAci, 1);
+                    layTbRec.Name = sLayerName;
+                    layTbRec.IsOff = false;
+                    layTb.UpgradeOpen();
+                    layTb.Add(layTbRec);
+                    acTrans.AddNewlyCreatedDBObject(layTbRec, true);
+                }
+            }
+
+            // Use ImageWidth and ImageHeight to get the size of the image in pixels (1024 x 768).
+            // Use ResolutionMMPerPixel to determine the number of millimeters in a pixel so you 
+            // can convert the size of the drawing into other units or millimeters based on the 
+            // drawing units used in the current drawing.
+
+            // Check to see if the measurement is set to English (Imperial) or Metric units
+            if (db.Measurement == MeasurementValue.English)
+            {
+                imageWidth = new Vector3d((acRasterDef.ResolutionMMPerPixel.X * acRaster.ImageWidth) / 25.4, 0, 0);
+                imageHeight = new Vector3d(0, (acRasterDef.ResolutionMMPerPixel.Y * acRaster.ImageHeight) / 25.4, 0);
+            }
+            else
+            {
+                imageWidth = new Vector3d(acRaster.ImageWidth, 0, 0);
+                imageHeight = new Vector3d(0, acRaster.ImageHeight, 0);
+            }
+
+            // 이미지 위치 정의
+            insPt = new Point3d(0.0, 0.0, 0.0);
+
+            // 이미지 방향에 대한 좌표계 정의 및 할당
+            CoordinateSystem3d coordinateSystem = new CoordinateSystem3d(insPt, imageWidth, imageHeight);
+            acRaster.Orientation = coordinateSystem;
+
+            // 이미지 회전 각도 설정
+            acRaster.Rotation = 0;
+            acRaster.Layer = sLayerName;
+
+            // 블록 테이블 레코드와 트랜잭션에 새로운 객체 추가
+            acBlkTblRec.AppendEntity(acRaster);
+            acTrans.AddNewlyCreatedDBObject(acRaster, true);
+
+            // Connect the raster definition and image together so the definition
+            // does not appear as "unreferenced" in the External References palette.
+            //RasterImage.EnableReactors(true);     // 주석 처리
+            acRaster.AssociateRasterDef(acRasterDef);
+
+            // 추후 스케일링해야 하기 때문에 주석 처리
+            //if (bRasterDefCreated)
+            //{
+            //    acRasterDef.Dispose();
+            //}
+        }
+
+        acTrans.Commit();
+    }
+
+    // 2. 축척(스케일링) 조정하기
+    double scale = 1.0;
+
+    PromptPointResult ppr1 = ed.GetPoint("\n첫 번째 점을 선택하십시오 ");
+
+    if (ppr1.Status != PromptStatus.OK) return;
+    Teigha.Geometry.Point3d firstPoint = ppr1.Value;
+
+    if (ppr1.Status == PromptStatus.Cancel) return;
+
+    PromptPointResult ppr2 = ed.GetPoint("\n두 번째 점을 선택하십시오 ");
+
+    if (ppr2.Status != PromptStatus.OK) return;
+    Teigha.Geometry.Point3d secondPoint = ppr2.Value;
+
+    double distanceOfPoints = firstPoint.DistanceTo(secondPoint);   // 사용자가 선택한 두 점을 기반으로 스케일링
+            
+    double actualDistance = 0.0;    // 사용자가 선택한 두 점의 실제 거리를 입력 받음
+
+    PromptDoubleOptions pIntOpts1 = new PromptDoubleOptions("");
+    pIntOpts1.Message = "\n실제 거리를 입력하십시오 (밀리미터 단위) ";
+    PromptDoubleResult pIntRes1 = doc.Editor.GetDouble(pIntOpts1);
+    actualDistance = pIntRes1.Value;
+
+    // 0이나 음수는 허용하지 않으며 양수만 입력할 수 있음
+    pIntOpts1.AllowZero = false;
+    pIntOpts1.AllowNegative = false;
+
+    // 축척 계산
+    scale = actualDistance / distanceOfPoints;
+
+    // scale 만큼 도면 및 치수를 곱해야 함
+    imageWidth *= scale;
+    imageHeight *= scale;
+
+    // 레스터 이미지 축척(스케일링) 조정
+    using (Transaction acTrans = db.TransactionManager.StartTransaction())
+    {
+        // 이미지 디렉토리 가져오기
+        acImgDctID = RasterImageDef.GetImageDictionary(db);
+
+        // 순수한 이미지 이름 추출
+        string strImgName = System.IO.Path.GetFileNameWithoutExtension(imagePath);
+
+        // 이미지 관리자
+        acImgDict = acTrans.GetObject(acImgDctID, OpenMode.ForRead) as DBDictionary;
+
+        acImgDefId = acImgDict.GetAt(strImgName);
+        acRasterDef = acTrans.GetObject(acImgDefId, OpenMode.ForWrite) as RasterImageDef;
+
+        // 읽기를 위한 블록 테이블 열기
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // 쓰기를 위한 블록 테이블 레코드 모델 공간 열기
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        using (acRaster = new RasterImage())
+        {
+            string sLayerName = "IMG_DRAWING";
+
+            // 이미지 방향에 대한 좌표계 정의 및 할당
+            CoordinateSystem3d coordinateSystem = new CoordinateSystem3d(insPt, imageWidth, imageHeight);
+            acRaster.Orientation = coordinateSystem;
+            acRaster.Layer = sLayerName;
+
+            // 블록 테이블 레코드와 트랜잭션에 새로운 객체 추가
+            acBlkTblRec.AppendEntity(acRaster);
+            acTrans.AddNewlyCreatedDBObject(acRaster, true);
+
+            acRaster.AssociateRasterDef(acRasterDef);
+
+            acRaster = acTrans.GetObject(acRaster.ObjectId, OpenMode.ForWrite) as RasterImage;
+            acRaster.TransformBy(Matrix3d.Scaling(scale, insPt));   // 이미지 확대
+
+            if (bRasterDefCreated)
+            {
+                acRasterDef.Dispose();
+            }
+        }
+
+        acTrans.Commit();
+    }
+
+    // 3-1. JSON 데이터를 읽어들여서 C# 클래스 형태로 저장 (WallLine)
+    string jsonContent_OOB_Wall = File.ReadAllText(this.JSONFileName_OOB_Wall);
+    OOBWallData oobWallData = JsonConvert.DeserializeObject<OOBWallData>(jsonContent_OOB_Wall);
+
+    Point2d aPoint;         // 포인트 저장 변수
+    List<Point2d> points = new List<Point2d>();
+    double point_x, point_y;
+    int wallLine_id = 0;
+
+    foreach (OOBWallsInfo oobWallInfo in oobWallData.OOBWalls)
+    {
+        points.Clear();
+
+        // class_name: wall 타입만 선택함
+        if (oobWallInfo.ClassName != "wall")
+            continue;
+
+        foreach (var point in oobWallInfo.Points)
+        {
+            point_x = point[0] * scale;
+            point_y = imageHeight.Y - point[1] * scale;
+                    
+            aPoint = new Point2d(point_x, point_y);
+
+            points.Add(aPoint);
+        }
+
+        // 4개의 선 중에서 가장 짧은 선 2개를 찾은 후에 각각의 중심점을 잇는 선을 찾는다.
+        if (points.Count == 4)
+        {
+            List<KeyValuePair<Point2d, double>> lineLengths = new List<KeyValuePair<Point2d, double>>
+                    {
+                        new KeyValuePair<Point2d, double>(points[0], points[0].GetDistanceTo(points[1])),
+                        new KeyValuePair<Point2d, double>(points[1], points[1].GetDistanceTo(points[2])),
+                        new KeyValuePair<Point2d, double>(points[2], points[2].GetDistanceTo(points[3])),
+                        new KeyValuePair<Point2d, double>(points[3], points[3].GetDistanceTo(points[0]))
+                    };
+
+            var shortestTwoLines = lineLengths.OrderBy(v => v.Value).ToList().Take(2).ToList();
+            Point2d midPoint;
+            List<Point2d> midPoints = new List<Point2d>();
+            double wallThk = 0.0;
+
+            foreach (var line in shortestTwoLines)
+            {
+                if (line.Key == points[0])
+                {
+                    midPoint = new Point2d((points[0].X + points[1].X) / 2, (points[0].Y + points[1].Y) / 2);
+                    midPoints.Add(midPoint);
+                    wallThk = points[0].GetDistanceTo(points[1]);
+                }
+                if (line.Key == points[1])
+                {
+                    midPoint = new Point2d((points[1].X + points[2].X) / 2, (points[1].Y + points[2].Y) / 2);
+                    midPoints.Add(midPoint);
+                    wallThk = points[1].GetDistanceTo(points[2]);
+                }
+                if (line.Key == points[2])
+                {
+                    midPoint = new Point2d((points[2].X + points[3].X) / 2, (points[2].Y + points[3].Y) / 2);
+                    midPoints.Add(midPoint);
+                    wallThk = points[2].GetDistanceTo(points[3]);
+                }
+                if (line.Key == points[3])
+                {
+                    midPoint = new Point2d((points[3].X + points[0].X) / 2, (points[3].Y + points[0].Y) / 2);
+                    midPoints.Add(midPoint);
+                    wallThk = points[3].GetDistanceTo(points[0]);
+                }
+            }
+
+            if (midPoints.Count == 2)
+            {
+                WallLine wallLine = new WallLine()
+                {
+                    id = wallLine_id,
+                    p1 = midPoints[0],
+                    p2 = midPoints[1],
+                    wallThk = wallThk
+                };
+
+                wallLines.Add(wallLine);
+            }
+
+            wallLine_id++;
+        }
+    }
+
+    // 3-2. JSON 데이터를 읽어들여서 C# 클래스 형태로 저장 (Box : JuncBox)
+    string jsonContent_JunctionBox = File.ReadAllText(this.JSONFileName_JunctionBox);
+    JunctionBoxData junctionBoxData = JsonConvert.DeserializeObject<JunctionBoxData>(jsonContent_JunctionBox);
+
+    double cx;
+    double cy;
+    double width;
+    double height;
+    double confidence;
+    string classText;
+
+    Point2d posLB_baseLT, posRB_baseLT, posLT_baseLT, posRT_baseLT;
+    Point2d posLB_baseLB, posRB_baseLB, posLT_baseLB, posRT_baseLB;
+    Point2d posCenter_baseLT, posCenter_baseLB;
+
+    // 정션 박스의 xmin, xmax, ymin, ymax
+    double xmin_juncBox;
+    double xmax_juncBox;
+    double ymin_juncBox;
+    double ymax_juncBox;
+
+    Point2d startPoint;
+    Point2d endPoint;
+
+    foreach (ObjectInfo junctions in junctionBoxData.Junctions)
+    {
+        // xmin, ymin, xmax, ymax 값을 이용하여 폴리라인 값 구성하기
+        // 단, 이미지의 좌상단이 원점이다.
+        cx = junctions.Center[0];
+        cy = junctions.Center[1];
+        width = junctions.Bbox[2] - junctions.Bbox[0];
+        height = junctions.Bbox[3] - junctions.Bbox[1];
+        confidence = junctions.Confidence;
+        classText = junctions.ClassName;
+
+        cx *= scale;
+        cy *= scale;
+        width *= scale;
+        height *= scale;
+
+        posLB_baseLT = new Point2d(cx - width / 2, cy - height / 2);
+        posRB_baseLT = new Point2d(cx + width / 2, cy - height / 2);
+        posLT_baseLT = new Point2d(cx - width / 2, cy + height / 2);
+        posRT_baseLT = new Point2d(cx + width / 2, cy + height / 2);
+        posCenter_baseLT = new Point2d(cx, cy);
+
+        // 반면, 정션 박스의 좌표는 원점이 이미지의 좌하단이다.
+        posLB_baseLB = new Point2d(cx - width / 2, imageHeight.Y - cy - height / 2);
+        posRB_baseLB = new Point2d(cx + width / 2, imageHeight.Y - cy - height / 2);
+        posLT_baseLB = new Point2d(cx - width / 2, imageHeight.Y - cy + height / 2);
+        posRT_baseLB = new Point2d(cx + width / 2, imageHeight.Y - cy + height / 2);
+        posCenter_baseLB = new Point2d(cx, imageHeight.Y - cy);
+
+        Box box = new Box()
+        {
+            id = juncBox_id,
+            isJuncBox = true,
+            className = classText,
+            confidence = confidence,
+            rect = new Extents2d(
+                posLB_baseLB.X,
+                posLB_baseLB.Y,
+                posRT_baseLB.X,
+                posRT_baseLB.Y
+            ),
+            center = new Point2d(cx, imageHeight.Y - cy),
+            connectVector = new List<SimpleVector>(),
+            connectedBoxes = new List<KeyValuePair<Box, double>>()
+        };
+
+        juncBox_id++;
+
+        // 정션 박스의 xmin, xmax, ymin, ymax
+        xmin_juncBox = posLB_baseLB.X;
+        xmax_juncBox = posRT_baseLB.X;
+        ymin_juncBox = posLB_baseLB.Y;
+        ymax_juncBox = posRT_baseLB.Y;
+
+        // 방향 벡터 구하는 알고리즘 (폴리라인과 정션박스 간의 관계를 통해 방향벡터 검출)
+        foreach (WallLine wallLine in wallLines)
+        {
+            Polyline acPoly = new Polyline();
+            acPoly.AddVertexAt(0, posLB_baseLB, 0, 0, 0);
+            acPoly.AddVertexAt(1, posRB_baseLB, 0, 0, 0);
+            acPoly.AddVertexAt(2, posRT_baseLB, 0, 0, 0);
+            acPoly.AddVertexAt(3, posLT_baseLB, 0, 0, 0);
+            acPoly.AddVertexAt(4, posLB_baseLB, 0, 0, 0);
+
+            Polyline acLine = new Polyline();
+            acLine.AddVertexAt(0, wallLine.p1, 0, 0, 0);
+            acLine.AddVertexAt(1, wallLine.p2, 0, 0, 0);
+
+            Vector2d direction1 = new Vector2d();    // 벡터1 (단방향일 경우 이것만 유효함)
+            Vector2d direction2 = new Vector2d();    // 벡터2 (양방향일 경우 이것도 유효함)
+
+            // 정션 박스와 벽 OBB 라인과의 교차점 계산
+            Point3dCollection intersectionPoints = new Point3dCollection();
+            acLine.IntersectWith(acPoly, Intersect.OnBothOperands, intersectionPoints, IntPtr.Zero, IntPtr.Zero);
+
+            if (intersectionPoints.Count == 0)
+                continue;
+
+            if (intersectionPoints.Count == 1)
+            {
+                Point2d interP = new Point2d(intersectionPoints[0].X, intersectionPoints[0].Y);
+                Point2d innerP = new Point2d(0.0, 0.0);
+
+                double minX = xmin_juncBox;
+                double minY = ymin_juncBox;
+                double maxX = xmax_juncBox;
+                double maxY = ymax_juncBox;
+
+                // 라인의 1번째 점이 정션 박스 내부에 있는가?
+                if (acLine.GetPoint3dAt(0).X > minX && acLine.GetPoint3dAt(0).X < maxX && acLine.GetPoint3dAt(0).Y > minY && acLine.GetPoint3dAt(0).Y < maxY)
+                    innerP = new Point2d(acLine.GetPoint3dAt(0).X, acLine.GetPoint3dAt(0).Y);
+                else
+                    innerP = new Point2d(acLine.GetPoint3dAt(1).X, acLine.GetPoint3dAt(1).Y);
+
+                // 벡터: 교차점(끝) <- 내부점(시작)
+                direction1 = interP - innerP;
+                if (!direction1.IsZeroLength())
+                {
+                    Polyline acVec = new Polyline();
+                    double vectorLength = xmax_juncBox - xmin_juncBox;
+
+                    // 1번째 벡터
+                    startPoint = innerP;
+                    endPoint = interP;
+
+                    acVec.AddVertexAt(0, startPoint, 0, 0, 0);
+                    acVec.AddVertexAt(1, endPoint, 0, 0, 0);
+
+                    box.connectVector.Add(new SimpleVector(startPoint, endPoint, wallLine.wallThk));
+                }
+            }
+            else if (intersectionPoints.Count == 2)
+            {
+                Point2d interP1 = new Point2d(intersectionPoints[0].X, intersectionPoints[0].Y);
+                Point2d interP2 = new Point2d(intersectionPoints[1].X, intersectionPoints[1].Y);
+
+                // 벡터: 교차점(끝) <- 교차점(시작) : 2가지 케이스가 있음
+                direction1 = interP2 - interP1;
+                if (!direction1.IsZeroLength())
+                {
+                    Polyline acVec = new Polyline();
+                    double vectorLength = xmax_juncBox - xmin_juncBox;
+
+                    // 1번째 벡터
+                    startPoint = interP1;
+                    endPoint = interP2;
+
+                    acVec.AddVertexAt(0, startPoint, 0, 0, 0);
+                    acVec.AddVertexAt(1, endPoint, 0, 0, 0);
+
+                    box.connectVector.Add(new SimpleVector(startPoint, endPoint, wallLine.wallThk));
+                }
+                direction2 = interP1 - interP2;
+                if (!direction2.IsZeroLength())
+                {
+                    Polyline acVec = new Polyline();
+                    double vectorLength = xmax_juncBox - xmin_juncBox;
+
+                    // 2번째 벡터
+                    startPoint = interP2;
+                    endPoint = interP1;
+
+                    acVec.AddVertexAt(0, startPoint, 0, 0, 0);
+                    acVec.AddVertexAt(1, endPoint, 0, 0, 0);
+
+                    box.connectVector.Add(new SimpleVector(startPoint, endPoint, wallLine.wallThk));
+                }
+            }
+        }
+
+        boxes.Add(box);
+    }
+
+    // 3-3. JSON 데이터를 읽어들여서 C# 클래스 형태로 저장 (Box : Object)
+    string jsonContent_Object = File.ReadAllText(this.JSONFileName_JunctionBox);
+    JunctionBoxData objectBoxData = JsonConvert.DeserializeObject<JunctionBoxData>(jsonContent_Object);
+
+    foreach (ObjectInfo objects in junctionBoxData.Objects)
+    {
+        // xmin, ymin, xmax, ymax 값을 이용하여 폴리라인 값 구성하기
+        // 단, 이미지의 좌상단이 원점이다.
+        cx = objects.Center[0];
+        cy = objects.Center[1];
+        width = objects.Bbox[2] - objects.Bbox[0];
+        height = objects.Bbox[3] - objects.Bbox[1];
+        confidence = objects.Confidence;
+        classText = objects.ClassName;
+
+        cx *= scale;
+        cy *= scale;
+        width *= scale;
+        height *= scale;
+
+        posLB_baseLT = new Point2d(cx - width / 2, cy - height / 2);
+        posRB_baseLT = new Point2d(cx + width / 2, cy - height / 2);
+        posLT_baseLT = new Point2d(cx - width / 2, cy + height / 2);
+        posRT_baseLT = new Point2d(cx + width / 2, cy + height / 2);
+        posCenter_baseLT = new Point2d(cx, cy);
+
+        // 반면, 정션 박스의 좌표는 원점이 이미지의 좌하단이다.
+        posLB_baseLB = new Point2d(cx - width / 2, imageHeight.Y - cy - height / 2);
+        posRB_baseLB = new Point2d(cx + width / 2, imageHeight.Y - cy - height / 2);
+        posLT_baseLB = new Point2d(cx - width / 2, imageHeight.Y - cy + height / 2);
+        posRT_baseLB = new Point2d(cx + width / 2, imageHeight.Y - cy + height / 2);
+        posCenter_baseLB = new Point2d(cx, imageHeight.Y - cy);
+
+        Box box = new Box()
+        {
+            id = juncBox_id,
+            isJuncBox = false,
+            className = classText,
+            confidence = confidence,
+            rect = new Extents2d(
+                posLB_baseLB.X,
+                posLB_baseLB.Y,
+                posRT_baseLB.X,
+                posRT_baseLB.Y
+            ),
+            center = new Point2d(cx, imageHeight.Y - cy),
+            connectVector = new List<SimpleVector>(),
+            connectedBoxes = new List<KeyValuePair<Box, double>>()
+        };
+        box.connectVector.Add(new SimpleVector(new Point2d(0, 0), new Point2d(0, 0), 0.0));
+
+        juncBox_id++;
+
+        boxes.Add(box);
+    }
+
+    // 4. wallLines, boxes 데이터 렌더링
+    using (Transaction acTrans = db.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Open the Layer table for read
+        LayerTable lt = acTrans.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+        // 벽 라인 그리기
+        string layerNameWallLine = "WALLLINE";
+                
+        if (!lt.Has(layerNameWallLine))
+        {
+            // If the layer does not exist, create it
+            lt.UpgradeOpen();
+            LayerTableRecord ltr = new LayerTableRecord();
+            ltr.Name = layerNameWallLine;
+            lt.Add(ltr);
+            acTrans.AddNewlyCreatedDBObject(ltr, true);
+        }
+
+        foreach (var wallLine in wallLines)
+        {
+            using (Polyline acPoly = new Polyline())
+            {
+                acPoly.AddVertexAt(0, wallLine.p1, 0, 0, 0);
+                acPoly.AddVertexAt(1, wallLine.p2, 0, 0, 0);
+
+                acPoly.Color = Color.FromRgb(0, 0, 255);
+                acPoly.Closed = false;
+                acPoly.Layer = layerNameWallLine;
+
+                acBlkTblRec.AppendEntity(acPoly);
+                acTrans.AddNewlyCreatedDBObject(acPoly, true);
+            }
+        }
+
+        // 박스 그리기
+        string layerNameJuncBox = "JUNC_BOX";
+
+        if (!lt.Has(layerNameJuncBox))
+        {
+            // If the layer does not exist, create it
+            lt.UpgradeOpen();
+            LayerTableRecord ltr = new LayerTableRecord();
+            ltr.Name = layerNameJuncBox;
+            lt.Add(ltr);
+            acTrans.AddNewlyCreatedDBObject(ltr, true);
+        }
+
+        string layerNameObject = "OBJECT";
+
+        if (!lt.Has(layerNameObject))
+        {
+            // If the layer does not exist, create it
+            lt.UpgradeOpen();
+            LayerTableRecord ltr = new LayerTableRecord();
+            ltr.Name = layerNameObject;
+            lt.Add(ltr);
+            acTrans.AddNewlyCreatedDBObject(ltr, true);
+        }
+
+        string layerNameLabel = "LABEL";
+
+        if (!lt.Has(layerNameLabel))
+        {
+            // If the layer does not exist, create it
+            lt.UpgradeOpen();
+            LayerTableRecord ltr = new LayerTableRecord();
+            ltr.Name = layerNameLabel;
+            lt.Add(ltr);
+            acTrans.AddNewlyCreatedDBObject(ltr, true);
+        }
+
+        string layerNameVector = "VECTOR";
+
+        if (!lt.Has(layerNameVector))
+        {
+            // If the layer does not exist, create it
+            lt.UpgradeOpen();
+            LayerTableRecord ltr = new LayerTableRecord();
+            ltr.Name = layerNameVector;
+            lt.Add(ltr);
+            acTrans.AddNewlyCreatedDBObject(ltr, true);
+        }
+
+        foreach (var box in boxes)
+        {
+            using (Polyline acPoly = new Polyline())
+            {
+                Point2d posLB = new Point2d(box.rect.MinPoint.X, box.rect.MinPoint.Y);
+                Point2d posRB = new Point2d(box.rect.MaxPoint.X, box.rect.MinPoint.Y);
+                Point2d posRT = new Point2d(box.rect.MaxPoint.X, box.rect.MaxPoint.Y);
+                Point2d posLT = new Point2d(box.rect.MinPoint.X, box.rect.MaxPoint.Y);
+                acPoly.Color = Color.FromRgb(0, 255, 0);
+                acPoly.AddVertexAt(0, posLB, 0, 0, 0);
+                acPoly.AddVertexAt(1, posRB, 0, 0, 0);
+                acPoly.AddVertexAt(2, posRT, 0, 0, 0);
+                acPoly.AddVertexAt(3, posLT, 0, 0, 0);
+                acPoly.AddVertexAt(4, posLB, 0, 0, 0);
+                if (box.className.StartsWith("junc"))
+                    acPoly.Layer = layerNameJuncBox;
+                else
+                    acPoly.Layer = layerNameObject;
+                acBlkTblRec.AppendEntity(acPoly);
+                acTrans.AddNewlyCreatedDBObject(acPoly, true);
+
+                // 클래스 이름, 텍스트 객체로 그리기
+                Point3d center = new Point3d(box.center.X, box.center.Y, 0);
+                DBText label = new DBText()
+                {
+                    Color = Color.FromRgb(0, 255, 255),
+                    Height = 2.0,
+                    Justify = AttachmentPoint.MiddleCenter,
+                    TextString = "{" + box.id + "} " + box.className,
+                    AlignmentPoint = center,
+                    Position = center,
+                    Layer = layerNameLabel
+                };
+                acBlkTblRec.AppendEntity(label as Entity);
+                acTrans.AddNewlyCreatedDBObject(label, true);
+
+                // 방향 벡터 그리기
+                foreach (SimpleVector simpleVector in box.connectVector)
+                {
+                    using (Polyline acPolyVector = new Polyline())
+                    {
+                        acPolyVector.AddVertexAt(0, simpleVector.startPoint, 0, 0, 0);
+                        acPolyVector.AddVertexAt(1, simpleVector.endPoint, 0, 0, 0);
+
+                        acPolyVector.Color = Color.FromRgb(255, 255, 0);
+                        acPolyVector.Closed = false;
+                        acPolyVector.Layer = layerNameVector;
+
+                        acBlkTblRec.AppendEntity(acPolyVector);
+                        acTrans.AddNewlyCreatedDBObject(acPolyVector, true);
+                    }
+                }
+            }
+        }
+
+        acTrans.Commit();
+    }
+
+    // 5. 인접한 정션 박스끼리 연결하기
+    List<Box> inlineBoxes = new List<Box>();
+
+    foreach (var curBox in boxes)
+    {
+        // 정션 박스가 아니면 패스
+        if (curBox.isJuncBox == false)
+            continue;
+
+        foreach (var curVector in curBox.connectVector)
+        {
+            inlineBoxes.Clear();
+
+            foreach (var otherBox in boxes)
+            {
+                // 정션 박스가 아니면 패스, 동일한 id이어도 패스
+                if ((otherBox.isJuncBox == false) || (curBox.id == otherBox.id))
+                    continue;
+
+                // 현 정션 박스의 벡터에 닿는 다른 정션 박스의 폴리라인과 닿는지 체크
+                Point2d posLB = new Point2d(otherBox.rect.MinPoint.X, otherBox.rect.MinPoint.Y);
+                Point2d posRB = new Point2d(otherBox.rect.MaxPoint.X, otherBox.rect.MinPoint.Y);
+                Point2d posRT = new Point2d(otherBox.rect.MaxPoint.X, otherBox.rect.MaxPoint.Y);
+                Point2d posLT = new Point2d(otherBox.rect.MinPoint.X, otherBox.rect.MaxPoint.Y);
+
+                bool bLeftEdge = CheckCollision(curVector.startPoint, curVector.endPoint, posLB, posLT);
+                bool bRightEdge = CheckCollision(curVector.startPoint, curVector.endPoint, posRB, posRT);
+                bool bBottomEdge = CheckCollision(curVector.startPoint, curVector.endPoint, posLB, posRB);
+                bool bTopEdge = CheckCollision(curVector.startPoint, curVector.endPoint, posLT, posRT);
+
+                if (bLeftEdge || bRightEdge || bBottomEdge || bTopEdge)
+                {
+                    inlineBoxes.Add(otherBox);
+                }
+            }
+
+            // 리스트에 있는 박스 중에서 가장 가까운 것만 연결해야 함
+            double distance = Double.MaxValue;
+            Box closestBox = null;
+            foreach (var inlineBox in inlineBoxes)
+            {
+                double newDistance = curBox.center.GetDistanceTo(inlineBox.center);
+                if (distance > newDistance)
+                {
+                    distance = newDistance;
+                    closestBox = inlineBox;
+                }
+            }
+            if (closestBox != null)
+            {
+                curBox.connectedBoxes.Add(new KeyValuePair<Box, double>(closestBox, curVector.wallThk));
+            }
+        }
+    }
+
+    // 6. 벽체 생성하기
+    double totalWallPerimeter = 0.0;
+    double totalWallArea = 0.0;
+    double totalWallVolume = 0.0;
+
+    double wallHeight = 0.0;
+    PromptDoubleOptions pIntOpts2 = new PromptDoubleOptions("");
+    pIntOpts2.Message = "\n벽 높이(층 높이)를 입력하십시오 ";
+    PromptDoubleResult pIntRes2 = doc.Editor.GetDouble(pIntOpts2);
+    wallHeight = pIntRes2.Value;
+
+    // 0이나 음수는 허용하지 않으며 양수만 입력할 수 있음
+    pIntOpts2.AllowZero = false;
+    pIntOpts2.AllowNegative = false;
+
+    using (Transaction acTrans = db.TransactionManager.StartTransaction())
+    {
+        // Open the Block table for read
+        BlockTable acBlkTbl;
+        acBlkTbl = acTrans.GetObject(db.BlockTableId, OpenMode.ForRead) as BlockTable;
+
+        // Open the Block table record Model space for write
+        BlockTableRecord acBlkTblRec;
+        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+
+        // Open the Layer table for read
+        LayerTable lt = acTrans.GetObject(db.LayerTableId, OpenMode.ForRead) as LayerTable;
+
+        string layerNameWall = "WALL";
+
+        if (!lt.Has(layerNameWall))
+        {
+            // If the layer does not exist, create it
+            lt.UpgradeOpen();
+            LayerTableRecord ltr = new LayerTableRecord();
+            ltr.Name = layerNameWall;
+            lt.Add(ltr);
+            acTrans.AddNewlyCreatedDBObject(ltr, true);
+        }
+
+        foreach (var curBox in boxes)
+        {
+            foreach (var otherBox in curBox.connectedBoxes)
+            {
+                using (Polyline acVectorLine = new Polyline())
+                {
+                    double theta = (otherBox.Key.center - curBox.center).Angle;
+                    double wallThk = otherBox.Value;
+
+                    // 1번째 점
+                    Point2d p1 = new Point2d(curBox.center.X + wallThk / 2 * Math.Sin(theta), curBox.center.Y - wallThk / 2 * Math.Cos(theta));
+                    // 2번째 점
+                    Point2d p2 = new Point2d(curBox.center.X - wallThk / 2 * Math.Sin(theta), curBox.center.Y + wallThk / 2 * Math.Cos(theta));
+                    // 3번째 점
+                    Point2d p3 = new Point2d(otherBox.Key.center.X - wallThk / 2 * Math.Sin(theta), otherBox.Key.center.Y + wallThk / 2 * Math.Cos(theta));
+                    // 4번째 점
+                    Point2d p4 = new Point2d(otherBox.Key.center.X + wallThk / 2 * Math.Sin(theta), otherBox.Key.center.Y - wallThk / 2 * Math.Cos(theta)); 
+
+                    acVectorLine.AddVertexAt(0, p1, 0, 0, 0);
+                    acVectorLine.AddVertexAt(1, p2, 0, 0, 0);
+                    acVectorLine.AddVertexAt(2, p3, 0, 0, 0);
+                    acVectorLine.AddVertexAt(3, p4, 0, 0, 0);
+
+                    acVectorLine.Color = Color.FromRgb(255, 0, 0);
+                    acVectorLine.Closed = true;
+                    acVectorLine.Layer = layerNameWall;
+
+                    acBlkTblRec.AppendEntity(acVectorLine);
+                    acTrans.AddNewlyCreatedDBObject(acVectorLine, true);
+
+                    // 벽 둘레/면적[단면]/부피 계산
+                    // (1-2점, 3-4점은 짧음 / 2-3점, 4-1점은 길음)
+                    totalWallPerimeter += (p1.GetDistanceTo(p2) + p2.GetDistanceTo(p3) + p3.GetDistanceTo(p4) + p4.GetDistanceTo(p1));
+                    totalWallArea += ((p2.GetDistanceTo(p3)) * wallHeight);
+                    totalWallVolume += ((p2.GetDistanceTo(p3)) * wallHeight * (p1.GetDistanceTo(p2)));
+                }
+            }
+        }
+
+        doc.Editor.WriteMessage($"\n전체 벽 둘레: {totalWallPerimeter}");
+        doc.Editor.WriteMessage($"\n전체 벽 면적[단면]: {totalWallArea}");
+        doc.Editor.WriteMessage($"\n전체 벽 부피: {totalWallVolume}");
+        doc.Editor.WriteMessage("\n");
+
+        acTrans.Commit();
+    }
+}
+
+// 벡터(startPoint -> endPoint)에 닿는 폴리라인 세그먼트(vertex1 -> vertex2)가 있는지 여부를 알려줌 (여기서 벡터는 반무한선분, 폴리라인은 유한선분)
+public bool CheckCollision(Point2d startPoint, Point2d endPoint, Point2d vertex1, Point2d vertex2)
+{
+    // 방향 벡터
+    Vector2d directionVector = endPoint - startPoint;
+
+    // 폴리라인 세그먼트의 방향 벡터 계산
+    Vector2d segmentVector = vertex2 - vertex1;
+
+    // 방향 벡터와 세그먼트 벡터가 서로 다른 방향인지 확인
+    double crossProduct = directionVector.X * segmentVector.Y - directionVector.Y * segmentVector.X;
+
+    if (Math.Abs(crossProduct) < Tolerance.Global.EqualPoint)
+    {
+        // 벡터가 평행할 경우 추가적인 검사 필요 (생략)
+        return false;
+    }
+    else
+    {
+        // 두 선분이 교차하는지 여부 판단
+        // https://gamedev.stackexchange.com/questions/26004/how-to-detect-2d-line-on-line-collision
+        double denominator = ((endPoint.X - startPoint.X) * (vertex2.Y - vertex1.Y)) - ((endPoint.Y - startPoint.Y) * (vertex2.X - vertex1.X));
+        double numerator1 = ((startPoint.Y - vertex1.Y) * (vertex2.X - vertex1.X)) - ((startPoint.X - vertex1.X) * (vertex2.Y - vertex1.Y));
+        double numerator2 = ((startPoint.Y - vertex1.Y) * (endPoint.X - startPoint.X)) - ((startPoint.X - vertex1.X) * (endPoint.Y - startPoint.Y));
+
+        if (denominator == 0)
+            return false;
+
+        double t1 = numerator1 / denominator;
+        double t2 = numerator2 / denominator;
+
+        // 첫 번째 선분이 반 무한 선분이므로 t1 >= 0 조건만 확인
+        // 두 번째 선분은 유한 길이이므로 t2는 [0, 1] 사이에 있어야 함
+        return t1 >= 0 && t2 >= 0 && t2 <= 1;
+    }
+}
+
+// (p1, p2)를 이은 무한 직선과 (p3, p4)를 이은 무한 직선의 교차점을 구하는 함수
+public Point2d intersectionPoint(Point2d p1, Point2d p2, Point2d p3, Point2d p4)
+{
+    double denominator = (p1.X - p2.X) * (p3.Y - p4.Y) - (p1.Y - p2.Y) * (p3.X - p4.X);
+
+    if (denominator == 0)
+    {
+        // 교차점을 찾지 못함
+        return new Point2d(double.NaN, double.NaN);
+    }
+    else
+    {
+        double x = ((p1.X * p2.Y - p1.Y * p2.X) * (p3.X - p4.X) - (p1.X - p2.X) * (p3.X * p4.Y - p3.Y * p4.X)) / denominator;
+        double y = ((p1.X * p2.Y - p1.Y * p2.X) * (p3.Y - p4.Y) - (p1.Y - p2.Y) * (p3.X * p4.Y - p3.Y * p4.X)) / denominator;
+        return new Point2d(x, y);
+    }
+}
+
+// 무한 직선 AB와 점 P와의 거리를 구하는 함수
+public double distOfPointBetweenLine(Point2d p, Point2d a, Point2d b)
+{
+    double area;
+    double dist_ab;
+
+    area = Math.Abs((a.X - p.X) * (b.Y - p.Y) - (a.Y - p.Y) * (b.X - p.X));
+    dist_ab = Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
+
+    return area / dist_ab;
+}
+
+private void selectButton_DrawingImage_Click(object sender, EventArgs e)
+{
+    System.Windows.Forms.OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog()
+    {
+        Multiselect = false,
+        Filter = "이미지 파일|*.bmp;*.jpg;*.jpeg;*.png;*.tif;*.tiff",
+        Title = "이미지 파일을 선택하십시오."
+    };
+
+    if (openFileDialog.ShowDialog() != DialogResult.OK)
+        return;
+
+    this.imageFileName = openFileDialog.FileName;
+
+    if (this.imageFileName != null)
+        selectButton_DrawingImage.ForeColor = System.Drawing.Color.Brown;
+}
+
+private void selectButton_JSON_JunctionBox_Click(object sender, EventArgs e)
+{
+    System.Windows.Forms.OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog()
+    {
+        Multiselect = false,
+        Filter = "JSON 파일|*.json",
+        Title = "JSON 파일을 선택하십시오."
+    };
+
+    if (openFileDialog.ShowDialog() != DialogResult.OK)
+        return;
+
+    this.JSONFileName_JunctionBox = openFileDialog.FileName;
+
+    if (this.JSONFileName_JunctionBox != null)
+        selectButton_JSON_JunctionBox.ForeColor = System.Drawing.Color.Brown;
+}
+
+private void selectButton_JSON_Segmentation_Click(object sender, EventArgs e)
+{
+    System.Windows.Forms.OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog()
+    {
+        Multiselect = false,
+        Filter = "JSON 파일|*.json",
+        Title = "JSON 파일을 선택하십시오."
+    };
+
+    if (openFileDialog.ShowDialog() != DialogResult.OK)
+        return;
+
+    this.JSONFileName_Segmentation = openFileDialog.FileName;
+
+    if (this.JSONFileName_Segmentation != null)
+        selectButton_JSON_Segmentation.ForeColor = System.Drawing.Color.Brown;
+}
+
+private void selectButton_JSON_OOB_Wall_Click(object sender, EventArgs e)
+{
+    System.Windows.Forms.OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog()
+    {
+        Multiselect = false,
+        Filter = "JSON 파일|*.json",
+        Title = "JSON 파일을 선택하십시오."
+    };
+
+    if (openFileDialog.ShowDialog() != DialogResult.OK)
+        return;
+
+    this.JSONFileName_OOB_Wall = openFileDialog.FileName;
+
+    if (this.JSONFileName_OOB_Wall != null)
+        selectButton_JSON_OOB_Wall.ForeColor = System.Drawing.Color.Brown;
+}
+```
+
 #### 리본 메뉴 생성하기
 
 ```cs
