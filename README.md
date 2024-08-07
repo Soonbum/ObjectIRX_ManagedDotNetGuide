@@ -1967,7 +1967,7 @@ private void selectButton_JSON_OOB_Wall_Click(object sender, EventArgs e)
 }
 ```
 
-#### 리본 메뉴 생성하기
+#### 리본 메뉴 생성하기 (Inline)
 
 ```cs
 public class CuiManager : IDisposable
@@ -2300,6 +2300,38 @@ public class CuiManager : IDisposable
         {
             profile.BuildUILayout(true, true, true, true);
         }
+    }
+}
+```
+
+#### 리본 메뉴 생성하기 (CUI 파일 사용)
+
+* CUI 파일은 AutoCAD에서 "CUI" 명령어를 통해 생성한 사용자 정의 리본 메뉴 파일을 참조하면 된다.
+
+```cs
+public class ApplicationInitialize : IExtensionApplication
+{
+    public void Initialize()
+    {
+        CuiManager.CreateRibbonTab();
+    }
+
+    public void Terminate()
+    {
+    }
+}
+
+public class CuiManager
+{
+    // 리본 메뉴 생성 (CUI 파일 참조)
+    public static void CreateRibbonTab()
+    {
+        string dllPath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+        string cuiPath = Path.Combine(dllPath, "cui_file.cui");
+        bool? nullable = IntelliCAD.ApplicationServices.Application.IsPartialMenuLoaded("RIBBON_TAB_NAME");
+        bool flag = false;
+        if (nullable.GetValueOrDefault() == flag & nullable.HasValue && File.Exists(cuiPath))
+            IntelliCAD.ApplicationServices.Application.LoadPartialMenu(cuiPath);
     }
 }
 ```
