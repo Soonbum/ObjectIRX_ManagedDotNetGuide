@@ -969,6 +969,16 @@ public class Box
     public List<KeyValuePair<Box, double>> connectedBoxes { get; set; }
 }
 
+// 세그먼트를 의미하는 Segment 객체
+public class Segment
+{
+    public int id { get; set; }
+
+    public string label { get; set; }
+
+    public Polyline polyline { get; set; }
+}
+
 public DrawingJSONDataForm()
 {
     InitializeComponent();
@@ -977,6 +987,12 @@ public DrawingJSONDataForm()
     this.JSONFileName_JunctionBox = null;
     this.JSONFileName_Segmentation = null;
     this.JSONFileName_OOB_Wall = null;
+            
+    // !!! 테스트 후 삭제할 것
+    imageFileName = "C:\\Users\\정순범\\OneDrive - IntelliKorea Limited\\바탕 화면\\프로젝트\\AI엔진\\2차 데이터 소스\\post_processing_data\\test_img\\VA_D_00012.png";
+    JSONFileName_JunctionBox = "C:\\Users\\정순범\\OneDrive - IntelliKorea Limited\\바탕 화면\\프로젝트\\AI엔진\\2차 데이터 소스\\post_processing_data\\json\\object\\VA_D_00012.json";
+    JSONFileName_Segmentation = "C:\\Users\\정순범\\OneDrive - IntelliKorea Limited\\바탕 화면\\프로젝트\\AI엔진\\2차 데이터 소스\\post_processing_data\\json\\segment\\VA_D_00012.json";
+    JSONFileName_OOB_Wall = "C:\\Users\\정순범\\OneDrive - IntelliKorea Limited\\바탕 화면\\프로젝트\\AI엔진\\2차 데이터 소스\\post_processing_data\\json\\wall\\VA_D_00012_oob.json";
 }
 
 private void DrawInfoButton_Click(object sender, EventArgs e)
@@ -987,6 +1003,12 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
 
     List<WallLine> wallLines = new List<WallLine>();
     List<Box> boxes = new List<Box>();
+    List<Segment> segments = new List<Segment>();
+
+    // 최적화를 위한 임계치
+    int threshold_pos = 50;         // 위치
+    int threshold_size = 50;        // 크기
+    double threshold_area = 0.9;    // 세그먼트 침범한 면적에 대한 임계치
 
     // 정션 박스는 고유 ID를 가져야 함
     int juncBox_id = 0;
@@ -1072,7 +1094,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
             {
                 using (LayerTableRecord layTbRec = new LayerTableRecord())
                 {
-                    layTbRec.Color = Teigha.Colors.Color.FromColorIndex(ColorMethod.ByAci, 1);
+                    layTbRec.Color = Color.FromRgb(255, 255, 255);
                     layTbRec.Name = sLayerName;
                     layTbRec.IsOff = false;
                     layTb.UpgradeOpen();
@@ -1234,7 +1256,11 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
         {
             point_x = point[0] * scale;
             point_y = imageHeight.Y - point[1] * scale;
-                    
+
+            // 최적화: 위치 좌표값을 threshold 배수로 반올림
+            point_x = RoundToNearestN(threshold_pos, (int)point_x);
+            point_y = RoundToNearestN(threshold_pos, (int)point_y);
+
             aPoint = new Point2d(point_x, point_y);
 
             points.Add(aPoint);
@@ -1340,6 +1366,12 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
         cy *= scale;
         width *= scale;
         height *= scale;
+
+        // 최적화: 위치, 크기 좌표값을 threshold 배수로 반올림
+        cx = RoundToNearestN(threshold_pos, (int)cx);
+        cy = RoundToNearestN(threshold_pos, (int)cy);
+        width = RoundToNearestN(threshold_size, (int)width);
+        height = RoundToNearestN(threshold_size, (int)height);
 
         posLB_baseLT = new Point2d(cx - width / 2, cy - height / 2);
         posRB_baseLT = new Point2d(cx + width / 2, cy - height / 2);
@@ -1498,6 +1530,12 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
         width *= scale;
         height *= scale;
 
+        // 최적화: 위치, 크기 좌표값을 threshold 배수로 반올림
+        cx = RoundToNearestN(threshold_pos, (int)cx);
+        cy = RoundToNearestN(threshold_pos, (int)cy);
+        width = RoundToNearestN(threshold_size, (int)width);
+        height = RoundToNearestN(threshold_size, (int)height);
+
         posLB_baseLT = new Point2d(cx - width / 2, cy - height / 2);
         posRB_baseLT = new Point2d(cx + width / 2, cy - height / 2);
         posLT_baseLT = new Point2d(cx - width / 2, cy + height / 2);
@@ -1534,7 +1572,40 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
         boxes.Add(box);
     }
 
-    // 4. wallLines, boxes 데이터 렌더링
+    // 3-4. JSON 데이터를 읽어들여서 C# 클래스 형태로 저장 (Segment)
+    string jsonContent_Segment = File.ReadAllText(this.JSONFileName_Segmentation);
+    SegmentationData segmentationData = JsonConvert.DeserializeObject<SegmentationData>(jsonContent_Segment);
+
+    int segment_id = 0;
+
+    foreach (SegmentInfo segmentInfo in segmentationData.Segments)
+    {
+        Polyline segmentPoly = new Polyline();
+        int nVertex = 0;
+        foreach (var point in segmentInfo.Points)
+        {
+            double vertex_x = point[0] * scale;
+            double vertex_y = (imageHeight.Y - point[1] * scale);
+
+            Point2d vertex = new Point2d(vertex_x, vertex_y);
+            segmentPoly.AddVertexAt(nVertex, vertex, 0, 0, 0);
+            nVertex++;
+        }
+        segmentPoly.Closed = true;
+
+        Segment segment = new Segment()
+        {
+            id = segment_id,
+            label = segmentInfo.Label,
+            polyline = segmentPoly,
+        };
+        if (segment.polyline.NumberOfVertices >= 3)
+            segments.Add(segment);
+
+        segment_id++;
+    }
+
+    // 4. 데이터 렌더링 (wallLines, boxes, segments)
     using (Transaction acTrans = db.TransactionManager.StartTransaction())
     {
         // Open the Block table for read
@@ -1652,7 +1723,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
                 DBText label = new DBText()
                 {
                     Color = Color.FromRgb(0, 255, 255),
-                    Height = 2.0,
+                    Height = 20.0,
                     Justify = AttachmentPoint.MiddleCenter,
                     TextString = "{" + box.id + "} " + box.className,
                     AlignmentPoint = center,
@@ -1677,6 +1748,67 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
                         acBlkTblRec.AppendEntity(acPolyVector);
                         acTrans.AddNewlyCreatedDBObject(acPolyVector, true);
                     }
+                }
+            }
+        }
+
+        // 세그먼트 그리기
+        string layerNameSegment = "SEGMENT";
+
+        if (!lt.Has(layerNameSegment))
+        {
+            // If the layer does not exist, create it
+            lt.UpgradeOpen();
+            LayerTableRecord ltr = new LayerTableRecord();
+            ltr.Name = layerNameSegment;
+            lt.Add(ltr);
+            acTrans.AddNewlyCreatedDBObject(ltr, true);
+        }
+
+        string layerNameSegmentLabel = "SEGMENT_LABEL";
+
+        if (!lt.Has(layerNameSegmentLabel))
+        {
+            // If the layer does not exist, create it
+            lt.UpgradeOpen();
+            LayerTableRecord ltr = new LayerTableRecord();
+            ltr.Name = layerNameSegmentLabel;
+            lt.Add(ltr);
+            acTrans.AddNewlyCreatedDBObject(ltr, true);
+        }
+
+        foreach (var segment in segments)
+        {
+            // 세그먼트
+            if ((segment.polyline.NumberOfVertices >= 3) && (segment.label != "wall"))
+            {
+                using (Polyline acPolySegment = new Polyline())
+                {
+                    for (int s = 0; s < segment.polyline.NumberOfVertices; s++)
+                        acPolySegment.AddVertexAt(s, segment.polyline.GetPoint2dAt(s), 0, 0, 0);
+
+                    acPolySegment.Color = Color.FromRgb(128, 128, 128);
+                    acPolySegment.Closed = true;
+                    acPolySegment.Layer = layerNameSegment;
+
+                    acBlkTblRec.AppendEntity(acPolySegment);
+                    acTrans.AddNewlyCreatedDBObject(acPolySegment, true);
+
+                    // 세그먼트 라벨
+                    Point2d center2d = CalculateCentroid(acPolySegment);
+                    Point3d center = new Point3d(center2d.X, center2d.Y, 0);
+                    DBText label = new DBText()
+                    {
+                        Color = Color.FromRgb(0, 128, 128),
+                        Height = 20.0,
+                        Justify = AttachmentPoint.MiddleCenter,
+                        TextString = segment.label,
+                        AlignmentPoint = center,
+                        Position = center,
+                        Layer = layerNameSegmentLabel
+                    };
+                    acBlkTblRec.AppendEntity(label as Entity);
+                    acTrans.AddNewlyCreatedDBObject(label, true);
                 }
             }
         }
@@ -1734,6 +1866,12 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
             }
             if (closestBox != null)
             {
+                // 최적화: 이웃 정션박스의 X 또는 Y의 높이 차이가 threshold_pos 이하이면 이웃 정션박스의 위치를 강제로 내 위치에 맞게 정렬함
+                if (Math.Abs(closestBox.center.X - curBox.center.X) <= threshold_pos)
+                    closestBox.center = new Point2d(curBox.center.X, closestBox.center.Y);
+                if (Math.Abs(closestBox.center.Y - curBox.center.Y) <= threshold_pos)
+                    closestBox.center = new Point2d(closestBox.center.X, curBox.center.Y);
+
                 curBox.connectedBoxes.Add(new KeyValuePair<Box, double>(closestBox, curVector.wallThk));
             }
         }
@@ -1779,11 +1917,25 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
             acTrans.AddNewlyCreatedDBObject(ltr, true);
         }
 
+        /*
+        string layerNameIntersectedArea = "INTERSECTED_AREA";
+
+        if (!lt.Has(layerNameIntersectedArea))
+        {
+            // If the layer does not exist, create it
+            lt.UpgradeOpen();
+            LayerTableRecord ltr = new LayerTableRecord();
+            ltr.Name = layerNameIntersectedArea;
+            lt.Add(ltr);
+            acTrans.AddNewlyCreatedDBObject(ltr, true);
+        }
+        */
+
         foreach (var curBox in boxes)
         {
             foreach (var otherBox in curBox.connectedBoxes)
             {
-                using (Polyline acVectorLine = new Polyline())
+                using (Polyline acWall = new Polyline())
                 {
                     double theta = (otherBox.Key.center - curBox.center).Angle;
                     double wallThk = otherBox.Value;
@@ -1795,25 +1947,78 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
                     // 3번째 점
                     Point2d p3 = new Point2d(otherBox.Key.center.X - wallThk / 2 * Math.Sin(theta), otherBox.Key.center.Y + wallThk / 2 * Math.Cos(theta));
                     // 4번째 점
-                    Point2d p4 = new Point2d(otherBox.Key.center.X + wallThk / 2 * Math.Sin(theta), otherBox.Key.center.Y - wallThk / 2 * Math.Cos(theta)); 
+                    Point2d p4 = new Point2d(otherBox.Key.center.X + wallThk / 2 * Math.Sin(theta), otherBox.Key.center.Y - wallThk / 2 * Math.Cos(theta));
 
-                    acVectorLine.AddVertexAt(0, p1, 0, 0, 0);
-                    acVectorLine.AddVertexAt(1, p2, 0, 0, 0);
-                    acVectorLine.AddVertexAt(2, p3, 0, 0, 0);
-                    acVectorLine.AddVertexAt(3, p4, 0, 0, 0);
+                    acWall.AddVertexAt(0, p1, 0, 0, 0);
+                    acWall.AddVertexAt(1, p2, 0, 0, 0);
+                    acWall.AddVertexAt(2, p3, 0, 0, 0);
+                    acWall.AddVertexAt(3, p4, 0, 0, 0);
 
-                    acVectorLine.Color = Color.FromRgb(255, 0, 0);
-                    acVectorLine.Closed = true;
-                    acVectorLine.Layer = layerNameWall;
+                    acWall.Color = Color.FromRgb(255, 0, 0);
+                    acWall.Closed = true;
+                    acWall.Layer = layerNameWall;
 
-                    acBlkTblRec.AppendEntity(acVectorLine);
-                    acTrans.AddNewlyCreatedDBObject(acVectorLine, true);
+                    // 최적화: 연결된 벽체가 다른 세그먼트를 일정 비율 이상 침범할 경우 연결하지 않음
+                    bool bValidWall = true;
 
-                    // 벽 둘레/면적[단면]/부피 계산
-                    // (1-2점, 3-4점은 짧음 / 2-3점, 4-1점은 길음)
-                    totalWallPerimeter += (p1.GetDistanceTo(p2) + p2.GetDistanceTo(p3) + p3.GetDistanceTo(p4) + p4.GetDistanceTo(p1));
-                    totalWallArea += ((p2.GetDistanceTo(p3)) * wallHeight);
-                    totalWallVolume += ((p2.GetDistanceTo(p3)) * wallHeight * (p1.GetDistanceTo(p2)));
+                    List<Point2d> intersectedPoints = new List<Point2d>();
+
+                    foreach (var segment in segments)
+                    {
+                        if (segment.label != "wall")
+                            continue;
+
+                        if (segment.polyline != null)
+                        {
+                            int lastIndex = segment.polyline.NumberOfVertices - 1;
+                            for (int k = 0; k < (lastIndex - 2); k++)
+                            {
+                                Point2d v1 = segment.polyline.GetPoint2dAt(k);
+                                Point2d v2 = segment.polyline.GetPoint2dAt(k + 1);
+
+                                // 세그먼트 폴리라인을 돌아가면서 벽 폴리라인과 겹치는 점들을 찾아간다.
+                                for (int w = 0; w < acWall.NumberOfVertices - 2; w++)
+                                {
+                                    Point2d interPoint = intersectionPoint(v1, v2, acWall.GetPoint2dAt(w), acWall.GetPoint2dAt(w + 1));
+
+                                    if ((interPoint.X != double.NaN) && (interPoint.Y != double.NaN))
+                                        intersectedPoints.Add(interPoint);
+                                }
+                            }
+                        }
+
+                        using (Polyline intersectedPolyline = new Polyline())
+                        {
+                            for (int p = 0; p < intersectedPoints.Count; p++)
+                                intersectedPolyline.AddVertexAt(p, intersectedPoints[p], 0, 0, 0);
+                            intersectedPolyline.Color = Color.FromRgb(128, 0, 128);
+                            intersectedPolyline.Closed = true;
+                            //intersectedPolyline.Layer = layerNameIntersectedArea;
+
+                            //acBlkTblRec.AppendEntity(intersectedPolyline);
+                            //acTrans.AddNewlyCreatedDBObject(intersectedPolyline, true);
+
+                            // 겹치는 점들로 이루어진 폴리라인의 면적과 벽 폴리라인의 면적을 비교하여
+                            // 겹치는 폴리라인의 면적이 벽 폴리라인의 일정 비율을 넘어가면
+                            // 다른 세그먼트에 침범한 것으로 간주하고 벽에서 제외시킴
+                            if (intersectedPolyline.Area / acWall.Area >= threshold_area)
+                                bValidWall = false;
+                        }
+
+                        intersectedPoints.Clear();
+                    }
+
+                    if (bValidWall)
+                    {
+                        acBlkTblRec.AppendEntity(acWall);
+                        acTrans.AddNewlyCreatedDBObject(acWall, true);
+
+                        // 벽 둘레/면적[단면]/부피 계산
+                        // (1-2점, 3-4점은 짧음 / 2-3점, 4-1점은 길음)
+                        totalWallPerimeter += (p1.GetDistanceTo(p2) + p2.GetDistanceTo(p3) + p3.GetDistanceTo(p4) + p4.GetDistanceTo(p1));
+                        totalWallArea += ((p2.GetDistanceTo(p3)) * wallHeight);
+                        totalWallVolume += ((p2.GetDistanceTo(p3)) * wallHeight * (p1.GetDistanceTo(p2)));
+                    }
                 }
             }
         }
@@ -1825,6 +2030,53 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
 
         acTrans.Commit();
     }
+}
+
+public Point2d CalculateCentroid(Polyline polyline)
+{
+    Document doc = IntelliCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+    Editor ed = doc.Editor;
+    Database db = doc.Database;
+            
+    double area = 0.0;
+    double cx = 0.0;
+    double cy = 0.0;
+
+    int numVertices = polyline.NumberOfVertices;
+
+    if (numVertices < 3) // 폴리라인이 삼각형을 형성하지 않으면 면적 계산 불가
+    {
+        throw new InvalidOperationException("Polygon must have at least 3 vertices.");
+    }
+
+    Point2d lastVertex = polyline.GetPoint2dAt(numVertices - 1);
+    for (int i = 0; i < numVertices; i++)
+    {
+        Point2d currentVertex = polyline.GetPoint2dAt(i);
+        double x1 = lastVertex.X;
+        double y1 = lastVertex.Y;
+        double x2 = currentVertex.X;
+        double y2 = currentVertex.Y;
+
+        double crossProduct = (x1 * y2) - (x2 * y1);
+        area += crossProduct;
+        cx += (x1 + x2) * crossProduct;
+        cy += (y1 + y2) * crossProduct;
+
+        lastVertex = currentVertex;
+    }
+
+    area /= 2.0;
+    cx /= (6.0 * area);
+    cy /= (6.0 * area);
+
+    return new Point2d(cx, cy);
+}
+
+// n의 배수로 반올림하기
+public int RoundToNearestN(decimal n, int number)
+{
+    return (int)(Math.Round((int)number / n) * n);
 }
 
 // 벡터(startPoint -> endPoint)에 닿는 폴리라인 세그먼트(vertex1 -> vertex2)가 있는지 여부를 알려줌 (여기서 벡터는 반무한선분, 폴리라인은 유한선분)
@@ -1879,6 +2131,46 @@ public Point2d intersectionPoint(Point2d p1, Point2d p2, Point2d p3, Point2d p4)
         double x = ((p1.X * p2.Y - p1.Y * p2.X) * (p3.X - p4.X) - (p1.X - p2.X) * (p3.X * p4.Y - p3.Y * p4.X)) / denominator;
         double y = ((p1.X * p2.Y - p1.Y * p2.X) * (p3.Y - p4.Y) - (p1.Y - p2.Y) * (p3.X * p4.Y - p3.Y * p4.X)) / denominator;
         return new Point2d(x, y);
+    }
+}
+
+// (p1, p2)를 이은 유한 직선과 (p3, p4)를 이은 유한 직선의 교차점을 구하는 함수
+public Point2d intersectionPointFinite(Point2d p1, Point2d p2, Point2d p3, Point2d p4)
+{
+    // 직선 1의 벡터
+    double dx1 = p2.X - p1.X;
+    double dy1 = p2.Y - p1.Y;
+
+    // 직선 2의 벡터
+    double dx2 = p4.X - p3.X;
+    double dy2 = p4.Y - p3.Y;
+
+    // 직선의 교차점을 찾기 위한 매개변수
+    double denominator = dx1 * dy2 - dy1 * dx2;
+
+    if (denominator == 0)
+    {
+        // 직선들이 평행하거나 동일할 때
+        return new Point2d(double.NaN, double.NaN);
+    }
+    else
+    {
+        // 직선의 교차점을 계산
+        double u = ((p3.X - p1.X) * dy2 - (p3.Y - p1.Y) * dx2) / denominator;
+        double v = ((p1.X - p3.X) * dy1 - (p1.Y - p3.Y) * dx1) / denominator;
+
+        // 유한 직선의 범위 내에 교차점이 있는지 확인
+        if (u >= 0 && u <= 1 && v >= 0 && v <= 1)
+        {
+            double x = p1.X + u * dx1;
+            double y = p1.Y + u * dy1;
+            return new Point2d(x, y);
+        }
+        else
+        {
+            // 유한 직선 범위 밖에 교차점이 있을 경우
+            return new Point2d(double.NaN, double.NaN);
+        }
     }
 }
 
