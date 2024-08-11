@@ -987,12 +987,6 @@ public DrawingJSONDataForm()
     this.JSONFileName_JunctionBox = null;
     this.JSONFileName_Segmentation = null;
     this.JSONFileName_OOB_Wall = null;
-            
-    // !!! 테스트 후 삭제할 것
-    imageFileName = "C:\\Users\\정순범\\OneDrive - IntelliKorea Limited\\바탕 화면\\프로젝트\\AI엔진\\2차 데이터 소스\\post_processing_data\\test_img\\VA_D_00012.png";
-    JSONFileName_JunctionBox = "C:\\Users\\정순범\\OneDrive - IntelliKorea Limited\\바탕 화면\\프로젝트\\AI엔진\\2차 데이터 소스\\post_processing_data\\json\\object\\VA_D_00012.json";
-    JSONFileName_Segmentation = "C:\\Users\\정순범\\OneDrive - IntelliKorea Limited\\바탕 화면\\프로젝트\\AI엔진\\2차 데이터 소스\\post_processing_data\\json\\segment\\VA_D_00012.json";
-    JSONFileName_OOB_Wall = "C:\\Users\\정순범\\OneDrive - IntelliKorea Limited\\바탕 화면\\프로젝트\\AI엔진\\2차 데이터 소스\\post_processing_data\\json\\wall\\VA_D_00012_oob.json";
 }
 
 private void DrawInfoButton_Click(object sender, EventArgs e)
