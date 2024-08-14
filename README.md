@@ -1002,7 +1002,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
     // 최적화를 위한 임계치
     int threshold_pos = 50;         // 위치
     int threshold_size = 50;        // 크기
-    double threshold_area = 0.9;    // 세그먼트 침범한 면적에 대한 임계치
+    double threshold_area = 0.5;    // 세그먼트 침범한 면적에 대한 임계치 (클수록 엄격해짐)
 
     // 정션 박스는 고유 ID를 가져야 함
     int juncBox_id = 0;
@@ -1244,7 +1244,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
 
         // class_name: wall 타입만 선택함
         if (oobWallInfo.ClassName != "wall")
-            continue;
+            return;
 
         foreach (var point in oobWallInfo.Points)
         {
@@ -1427,7 +1427,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
             acLine.IntersectWith(acPoly, Intersect.OnBothOperands, intersectionPoints, IntPtr.Zero, IntPtr.Zero);
 
             if (intersectionPoints.Count == 0)
-                continue;
+                return;
 
             if (intersectionPoints.Count == 1)
             {
@@ -1817,7 +1817,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
     {
         // 정션 박스가 아니면 패스
         if (curBox.isJuncBox == false)
-            continue;
+            return;
 
         foreach (var curVector in curBox.connectVector)
         {
@@ -1827,7 +1827,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
             {
                 // 정션 박스가 아니면 패스, 동일한 id이어도 패스
                 if ((otherBox.isJuncBox == false) || (curBox.id == otherBox.id))
-                    continue;
+                    return;
 
                 // 현 정션 박스의 벡터에 닿는 다른 정션 박스의 폴리라인과 닿는지 체크
                 Point2d posLB = new Point2d(otherBox.rect.MinPoint.X, otherBox.rect.MinPoint.Y);
@@ -1959,8 +1959,8 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
 
                     foreach (var segment in segments)
                     {
-                        if (segment.label != "wall")
-                            continue;
+                        if (segment.label == "wall")
+                            return;
 
                         if (segment.polyline != null)
                         {
