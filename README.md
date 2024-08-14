@@ -1244,7 +1244,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
 
         // class_name: wall 타입만 선택함
         if (oobWallInfo.ClassName != "wall")
-            return;
+            continue;
 
         foreach (var point in oobWallInfo.Points)
         {
@@ -1427,7 +1427,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
             acLine.IntersectWith(acPoly, Intersect.OnBothOperands, intersectionPoints, IntPtr.Zero, IntPtr.Zero);
 
             if (intersectionPoints.Count == 0)
-                return;
+                continue;
 
             if (intersectionPoints.Count == 1)
             {
@@ -1817,7 +1817,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
     {
         // 정션 박스가 아니면 패스
         if (curBox.isJuncBox == false)
-            return;
+            continue;
 
         foreach (var curVector in curBox.connectVector)
         {
@@ -1827,7 +1827,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
             {
                 // 정션 박스가 아니면 패스, 동일한 id이어도 패스
                 if ((otherBox.isJuncBox == false) || (curBox.id == otherBox.id))
-                    return;
+                    continue;
 
                 // 현 정션 박스의 벡터에 닿는 다른 정션 박스의 폴리라인과 닿는지 체크
                 Point2d posLB = new Point2d(otherBox.rect.MinPoint.X, otherBox.rect.MinPoint.Y);
@@ -1960,7 +1960,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
                     foreach (var segment in segments)
                     {
                         if (segment.label == "wall")
-                            return;
+                            continue;
 
                         if (segment.polyline != null)
                         {
