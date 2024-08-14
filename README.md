@@ -1002,7 +1002,7 @@ private void DrawInfoButton_Click(object sender, EventArgs e)
     // 최적화를 위한 임계치
     int threshold_pos = 50;         // 위치
     int threshold_size = 50;        // 크기
-    double threshold_area = 0.5;    // 세그먼트 침범한 면적에 대한 임계치 (작을수록 엄격해짐)
+    double threshold_area = 0.9;    // 세그먼트 침범한 면적에 대한 임계치 (작을수록 엄격해짐)
 
     // 정션 박스는 고유 ID를 가져야 함
     int juncBox_id = 0;
